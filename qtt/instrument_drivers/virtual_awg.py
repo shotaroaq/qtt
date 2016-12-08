@@ -21,10 +21,6 @@ import qtt
 class virtual_awg(Instrument):
     shared_kwargs = ['instruments', 'hardware']
 
-    shared_kwargs = ['instruments', 'hardware']
-
-    shared_kwargs = ['instruments', 'hardware']
-
     def __init__(self, name, instruments=[], awg_map=None, hardware=None, verbose=1, **kwargs):
         super().__init__(name, **kwargs)
         self._awgs = instruments
@@ -34,7 +30,7 @@ class virtual_awg(Instrument):
         self.delay_FPGA = 2.0e-6  # should depend on filterboxes
         self.corr = .02e-6
         self.maxdatapts = 8189
-        qcodes.installZMQlogger()
+        qcodes.utils.loggingGUI.installZMQlogger()
         logging.info('virtual_awg: setup')
 
         if len(self._awgs) == 0 and self.verbose:
