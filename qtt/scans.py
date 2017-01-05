@@ -456,20 +456,30 @@ def scan2Dfast(station, scanjob, liveplotwindow=None, wait_time=None, background
     sweepdata = scanjob['sweepdata']
     Naverage = scanjob.get('Naverage', 20)
     
-#    logging.info('scan2D: todo: implement compensategates for sensing dot compensation')
-
     delay = scanjob.get('delay', 0.0)
-#    if wait_time is not None:
-#        raise Exception('not implemented')
 
     gates = station.gates
     gvs = gates.allvalues()
 
-    sweepgate = sweepdata.get('gate', None)
-    sweepparam = getattr(gates, sweepgate) # Use any type of parameter?
+    if 'param' in sweepdata:
+        sweeppar = sweepdata['param']
+    else:
+        sweeppar = sweepdata.get('gate', None)
+    
+    if 'sweep_instr' in scanjob:
+        sweepparam = getattr(getattr(station, scanjob['sweep_instr']), sweeppar)
+    else:
+        sweepparam = getattr(gates, sweeppar)
 
-    stepgate = stepdata.get('gate', None)
-    stepparam = getattr(gates, stepgate)
+    if 'param' in stepdata:
+        steppar = stepdata['param']
+    else:
+        steppar = stepdata.get('gate', None)
+        
+    if 'step_instr' in scanjob:
+        stepparam = getattr(getattr(station,scanjob['step_instr']), steppar)
+    else:
+        stepparam = getattr(gates, steppar)
 
     def readfunc(waveform, Naverage):
         fpga_ch = scanjob['sd'].fpga_ch
@@ -479,14 +489,16 @@ def scan2Dfast(station, scanjob, liveplotwindow=None, wait_time=None, background
         return data
 
     sweeprange = (sweepdata['end'] - sweepdata['start'])
-#    sweeprange = qtt.algorithms.generic.signedmin(sweeprange, 60)  # FIXME
     period = scanjob['sweepdata'].get('period', 1e-3)
-    sweepgate_value = (sweepdata['start'] + sweepdata['end']) / 2
+    sweep_value = (sweepdata['start'] + sweepdata['end']) / 2
 
     if 'gates_horz' in scanjob:
         waveform, sweep_info = station.awg.sweep_gate_virt(scanjob['gates_horz'], sweeprange, period)
+    elif 'sweep_instr' in scanjob:
+        if scanjob['sweep_instr'] == 'eff_sweep_gates':
+            waveform, sweep_info = station.awg.sweep_gate_virt(station.eff_sweep_gates.map_inv[sweepparam.name], sweeprange, period)
     else:
-        waveform, sweep_info = station.awg.sweep_gate(sweepgate, sweeprange, period)
+        waveform, sweep_info = station.awg.sweep_gate(sweepparam.name, sweeprange, period)
 
     if 'gates_vert' in scanjob:
         scanjob['gates_vert_init'] = {}
@@ -495,14 +507,14 @@ def scan2Dfast(station, scanjob, liveplotwindow=None, wait_time=None, background
             scanjob['gates_vert_init'][g] = gates.get(g)
     else:
         stepparam.set(stepdata['start'])
-        sweepparam.set(sweepgate_value)
+        sweepparam.set(sweep_value)
 
     qtt.time.sleep(wait_time)
 
     data = readfunc(waveform, Naverage)
-    ds0, _ = makeDataset_sweep(data, sweepgate, sweeprange, sweepgate_value=sweepgate_value, fig=None)
+    ds0, _ = makeDataset_sweep(data, sweepparam.name, sweeprange, sweepgate_value=sweep_value, fig=None)
 
-    sweepvalues = sweepparam[list(ds0.arrays[sweepgate])]
+    sweepvalues = sweepparam[list(ds0.arrays[sweepparam.name])]
     stepvalues = stepparam[stepdata['start']:stepdata['end']:stepdata['step']]
 
     logging.info('scan2D: %d %d' % (len(stepvalues), len(sweepvalues)))

@@ -156,14 +156,6 @@ class virtual_awg(Instrument):
             self._awgs[sweep[0]].send_waveform_to_list(sweep_info[sweep]['waveform'], sweep_info[
                                                        sweep]['marker1'], sweep_info[sweep]['marker2'], sweep_info[sweep]['name'])
 
-        return sweep_info
-
-    def sweep_run(self, sweep_info):
-        ''' Activate AWG(s) and channel(s) for the sweep(s).
-
-        Arguments:
-            sweep_info (dict): the keys are tuples of the awgs and channels to activate
-        '''
         for sweep in sweep_info:
             if hasattr(self, 'awg_seq') and self._awgs[sweep[0]] == self.awg_seq:
                 self._awgs[sweep[0]].set_sqel_waveform(
@@ -176,6 +168,14 @@ class virtual_awg(Instrument):
                 self._awgs[sweep[0]].set(
                     'ch%i_waveform' % sweep[1], sweep_info[sweep]['name'])
 
+        return sweep_info
+
+    def sweep_run(self, sweep_info):
+        ''' Activate AWG(s) and channel(s) for the sweep(s).
+
+        Arguments:
+            sweep_info (dict): the keys are tuples of the awgs and channels to activate
+        '''
         for sweep in sweep_info:
             self._awgs[sweep[0]].set('ch%i_state' % sweep[1], 1)
 
