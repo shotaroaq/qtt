@@ -49,7 +49,7 @@ class virtual_awg(Instrument):
             raise Exception(
                 'Configuration of AWGs not supported by virtual_awg instrument')
 
-        self.AWG_clock = 1e8
+        self.AWG_clock = 1e7
         self.ch_amp = 4.0
         for awg in self._awgs:
             awg.set('clock_freq', self.AWG_clock)

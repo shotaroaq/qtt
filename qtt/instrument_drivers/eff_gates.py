@@ -28,7 +28,7 @@ class eff_gates(Instrument):
     '''
     shared_kwargs = ['gates']
     
-    def __init__(self, name, gates, eff_gate_map, **kwargs):
+    def __init__(self, name, gates, eff_gate_map, sweepgates=None, **kwargs):
         super().__init__(name, **kwargs)
 
         self.gates = gates
@@ -50,6 +50,17 @@ class eff_gates(Instrument):
                                get_cmd=partial(self._get, gate=g),
                                set_cmd=partial(self._set, gate=g),
                                vals=Numbers(-2000, 2000))
+
+        if sweepgates == None:
+            self.sweepgates = self._eff_gates_list
+            self.sweepmap = self.map_inv
+        else:
+            self.sweepgates = sweepgates
+            self.sweepmap = dict()
+            for geff in self.sweepgates:
+                self.sweepmap[geff+'_eff'] = dict()
+                for g in sweepgates:
+                    self.sweepmap[geff+'_eff'][g] = self.map_inv[geff+'_eff'][g]
 
     def _get(self, gate):
         gateval = sum([self.map[gate][g]*self.gates[g].get() for g in self.map[gate]])

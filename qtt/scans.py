@@ -495,8 +495,10 @@ def scan2Dfast(station, scanjob, liveplotwindow=None, wait_time=None, background
     if 'gates_horz' in scanjob:
         waveform, sweep_info = station.awg.sweep_gate_virt(scanjob['gates_horz'], sweeprange, period)
     elif 'sweep_instr' in scanjob:
-        if scanjob['sweep_instr'] == 'eff_sweep_gates':
-            waveform, sweep_info = station.awg.sweep_gate_virt(station.eff_sweep_gates.map_inv[sweepparam.name], sweeprange, period)
+#        if scanjob['sweep_instr'] == 'eff_sweep_gates':
+        if scanjob['sweep_instr'] == 'virt_gates':
+#            waveform, sweep_info = station.awg.sweep_gate_virt(station.eff_sweep_gates.map_inv[sweepparam.name], sweeprange, period)
+            waveform, sweep_info = station.awg.sweep_gate_virt(station.virt_gates.sweepmap[sweepparam.name], sweeprange, period)
     else:
         waveform, sweep_info = station.awg.sweep_gate(sweepparam.name, sweeprange, period)
 
@@ -509,6 +511,7 @@ def scan2Dfast(station, scanjob, liveplotwindow=None, wait_time=None, background
         stepparam.set(stepdata['start'])
         sweepparam.set(sweep_value)
 
+    wait_time = scanjob.get('wait_time', 0)
     qtt.time.sleep(wait_time)
 
     data = readfunc(waveform, Naverage)
