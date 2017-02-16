@@ -866,7 +866,7 @@ def scanPinchValue(station, outputdir, gate, basevalues=None, keithleyidx=[1], s
     else:
         b = basevalues[gate]
     sweepdata = dict(
-        {'gates': [gate], 'start': max(b, 0), 'end': -750, 'step': -2})
+        {'gates': [gate], 'start': max(b, 0), 'end': -340, 'step': -2})  # TODO: move hard-coded info
     if full == 0:
         sweepdata['step'] = -6
 

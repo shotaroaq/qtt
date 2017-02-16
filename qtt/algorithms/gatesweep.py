@@ -130,7 +130,7 @@ def analyseGateSweep(dd, fig=None, minthr=None, maxthr=None, verbose=1, drawsmoo
         leftval = ww[mp:]
         rightval = ww[0:mp]
     st = ww.std()
-    if verbose:
+    if verbose>=2:
         print('analyseGateSweep: leftval %.1f, rightval %.1f' %
               (leftval.mean(), rightval.mean()))
     if goodgate and (rightval.mean() - leftval.mean() < .3 * st):
@@ -150,7 +150,7 @@ def analyseGateSweep(dd, fig=None, minthr=None, maxthr=None, verbose=1, drawsmoo
         # pmid = np.polyval(fit, midpoint2)
         p0 = np.polyval(fit, xleft[-1])
         pmid = np.polyval(fit, xleft[0])
-        if verbose:
+        if verbose>=2:
             print('p0 %.1f, pmid %.1f, leftval[0] %.1f' % (p0, pmid, leftval[0]))
 
         if pmid + (pmid - p0) * .25 > leftval[0]:
@@ -235,9 +235,10 @@ def analyseGateSweep(dd, fig=None, minthr=None, maxthr=None, verbose=1, drawsmoo
     adata['midpoint'] = midpoint2
     adata['midvalue'] = midvalue
 
-    if verbose >= 2:
+    if verbose >= 1:
         print('analyseGateSweep: gate status %d: pinchvalue %.1f' %
               (goodgate, adata['pinchvalue']))
+    if verbose >= 2:
         adata['Xsmooth'] = ww
         adata['XX'] = XX
         adata['X'] = value
