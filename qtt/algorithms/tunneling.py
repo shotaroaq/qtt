@@ -3,13 +3,12 @@
 
 @author: diepencjv
 """
-
-#%%
+#%% import modules
 import scipy.optimize
 import numpy as np
 import scipy.ndimage
 
-
+#%% Polarization line measurements
 def polmod_all_2slopes(delta, par, kT):
     """ Polarization line model.
 
