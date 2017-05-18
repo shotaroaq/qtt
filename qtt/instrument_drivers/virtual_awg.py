@@ -499,6 +499,8 @@ class virtual_awg(Instrument):
         self.sweep_run(sweep_info)
         waveform['amplitude'] = amplitude
         waveform['samplerate'] = samplerate
+        waveform['pulse_duration'] = pulse_duration
+        waveform['relaxation_time'] = relaxation_time
 
         return waveform, sweep_info
 
@@ -537,8 +539,34 @@ class virtual_awg(Instrument):
         self.sweep_run(sweep_info)
         waveform['amplitude'] = amplitude
         waveform['samplerate'] = 1 / self.AWG_clock
+        waveform['pulse_duration'] = pulse_duration
+        waveform['relaxation_time'] = relaxation_time
 
         return waveform, sweep_info
+
+    def pulse_process(self, data, waveform, Naverage=1, samplerate=1e6):
+        """ Process the read-out data from a pulsed wave.
+
+        The data will be chopped up into two parts, where the first part is the data recorded during
+        the pulse and the second part the data recorded during the relaxation time.
+
+        Arguments:
+            data (list or Nx1 array): the data
+            waveform (dict): dictionary with info about the pulse, e.g. amplitude, duration
+
+        Returns:
+            processed_data (Nx1 array): the processed data
+
+        """
+        pulse_duration = waveform['pulse_duration']
+
+        if isinstance(data, list):
+            data = np.array(data)
+
+        data = data / Naverage
+        data_processed = [data[:np.floor(pulse_duration * samplerate)], data[np.floor(pulse_duration * samplerate):]]
+
+        return data_processed
 
 #%%
 
