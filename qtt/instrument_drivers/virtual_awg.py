@@ -100,8 +100,8 @@ class virtual_awg(Instrument):
             marker_delay = self.delay_FPGA
         elif 'm4i_mk' in self.awg_map:
             marker_info = self.awg_map['m4i_mk']
-            marker_delay = period/2
-    
+            marker_delay = period / 2
+
         awgs.append(self._awgs[marker_info[0]])
 
         sweep_info = dict()
@@ -295,7 +295,7 @@ class virtual_awg(Instrument):
         width = waveform['width']
 
         if isinstance(data, list):
-            data=np.array(data)
+            data = np.array(data)
 
         if direction == 'forwards':
             end = int(np.floor(width * data.shape[0] - 1))
@@ -458,45 +458,91 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def pulse_gate(self, gate, amplitude, block_duration, relaxation_time, wave_name=None, delete=True):
-        ''' Send a block signal with the AWG to a gate to pulse. Also
+    def pulse_gate(self, gate, amplitude, pulse_duration, relaxation_time=None, wave_name=None, delete=True):
+        ''' Send a square wave signal with the AWG to a gate to pulse. Also
         send a trigger marker to the FPGA or digitizer for read-out.
 
+        By default the relaxation time is just as long as the pulse duration.
+
         Arguments:
-            gate (string): the name of the gate to sweep
-            amplitude (float): block signal amplitude in units of mV
+            gate (string): the name of the gate to pulse
+            amplitude (float): square wave amplitude in units of mV
+            pulse_duration (float): duration of pulse part of the wave
+            relaxation_time (float): duration of relaxation part of the wave
 
         Returns:
-            waveform (dict): The waveform being send with the AWG.
+            waveform (dict): the waveform being send with the AWG.
             sweep_info (dict): the keys are tuples of the awgs and channels to activate
 
         Example:
         -------
-        >>> waveform, sweep_info = pulse_gate('P1',)
+        >>> waveform, sweep_info = pulse_gate('P1', 100, 1e-3, 2e-3)
         '''
+        if relaxation_time is None:
+            relaxation_time = pulse_duration
+
         samplerate = 1. / self.AWG_clock
         waveform = dict()
-        total_duration = block_duration + relaxation_time
-        wave_raw = np.zeros(total_duration*samplerate)
-        wave_raw[:int(block_duration*samplerate)] = amplitude
+        total_duration = pulse_duration + relaxation_time
+        wave_raw = np.zeros(total_duration * samplerate)
+        wave_raw[:int(pulse_duration * samplerate)] = amplitude
 
         awg_to_plunger = self.hardware.parameters['awg_to_%s' % gate].get()
         wave = wave_raw / awg_to_plunger
         waveform[gate] = dict()
         waveform[gate]['wave'] = wave
         if wave_name is None:
-            waveform[gate]['name'] = 'sweep_%s' % gate
+            waveform[gate]['name'] = 'square_%s' % gate
         else:
             waveform[gate]['name'] = wave_name
         sweep_info = self.sweep_init(waveform, delete=delete)
         self.sweep_run(sweep_info)
+        waveform['amplitude'] = amplitude
         waveform['samplerate'] = samplerate
 
         return waveform, sweep_info
-        
-        
+
+    def pulse_gate_virt(self, gate_comb, amplitude, pulse_duration, relaxation_time=None, delete=True):
+        ''' Send a square wave signal with the AWG to a linear combination of 
+        gates to pulse. Also send a marker to the FPGA or digitizer.
+
+        By default the relaxation time is just as long as the pulse duration.
+
+        Arguments:
+            gate_comb (dict): the gates to pulse and the coefficients as values
+            amplitude (float): square wave amplitude in units of mV
+            pulse_duration (float): duration of pulse part of the wave
+            relaxation_time (float): duration of relaxation part of the wave
+
+        Returns:
+            waveform (dict): The waveform being send with the AWG.
+            sweep_info (dict): the keys are tuples of the awgs and channels to activate
+        '''
+        if relaxation_time is None:
+            relaxation_time = pulse_duration
+
+        samplerate = 1. / self.AWG_clock
+        waveform = dict()
+        total_duration = pulse_duration + relaxation_time
+        for g in gate_comb:
+            wave_raw = np.zeros(total_duration * samplerate)
+            wave_raw[:int(pulse_duration * samplerate)] = amplitude
+            awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
+            wave = wave_raw * gate_comb[g] / awg_to_plunger
+            waveform[g] = dict()
+            waveform[g]['wave'] = wave
+            waveform[g]['name'] = 'square_%s' % g
+
+        sweep_info = self.sweep_init(waveform, delete)
+        self.sweep_run(sweep_info)
+        waveform['amplitude'] = amplitude
+        waveform['samplerate'] = 1 / self.AWG_clock
+
+        return waveform, sweep_info
 
 #%%
+
+
 def plot_wave_raw(wave_raw, samplerate=None, station=None):
     ''' Plot the raw wave 
 
