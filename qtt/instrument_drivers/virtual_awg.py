@@ -458,6 +458,43 @@ class virtual_awg(Instrument):
 
         return data_processed
 
+    def pulse_gate(self, gate, amplitude, block_duration, relaxation_time, wave_name=None, delete=True):
+        ''' Send a block signal with the AWG to a gate to pulse. Also
+        send a trigger marker to the FPGA or digitizer for read-out.
+
+        Arguments:
+            gate (string): the name of the gate to sweep
+            amplitude (float): block signal amplitude in units of mV
+
+        Returns:
+            waveform (dict): The waveform being send with the AWG.
+            sweep_info (dict): the keys are tuples of the awgs and channels to activate
+
+        Example:
+        -------
+        >>> waveform, sweep_info = pulse_gate('P1',)
+        '''
+        samplerate = 1. / self.AWG_clock
+        waveform = dict()
+        total_duration = block_duration + relaxation_time
+        wave_raw = np.zeros(total_duration*samplerate)
+        wave_raw[:int(block_duration*samplerate)] = amplitude
+
+        awg_to_plunger = self.hardware.parameters['awg_to_%s' % gate].get()
+        wave = wave_raw / awg_to_plunger
+        waveform[gate] = dict()
+        waveform[gate]['wave'] = wave
+        if wave_name is None:
+            waveform[gate]['name'] = 'sweep_%s' % gate
+        else:
+            waveform[gate]['name'] = wave_name
+        sweep_info = self.sweep_init(waveform, delete=delete)
+        self.sweep_run(sweep_info)
+        waveform['samplerate'] = samplerate
+
+        return waveform, sweep_info
+        
+        
 
 #%%
 def plot_wave_raw(wave_raw, samplerate=None, station=None):
