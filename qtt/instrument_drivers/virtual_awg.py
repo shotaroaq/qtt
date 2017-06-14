@@ -210,6 +210,11 @@ class virtual_awg(Instrument):
 
         return wave_raw
 
+    def marker_read_out(self, period=1e-3, delete=True):
+        ''' Send marker for read-out. '''
+        sweep_info = self.sweep_init({}, period=period, delete=delete)
+        self.sweep_run(sweep_info)
+
     def sweep_gate(self, gate, sweeprange, period, width=.95, wave_name=None, delete=True):
         ''' Send a sawtooth signal with the AWG to a gate to sweep. Also
         send a marker to the FPGA.
