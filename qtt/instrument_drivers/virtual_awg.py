@@ -492,13 +492,13 @@ class virtual_awg(Instrument):
         samplerate = 1. / self.AWG_clock
         waveform = dict()
         total_duration = pulse_duration + relaxation_time
-        wave_raw = np.zeros(total_duration * samplerate)
-        wave_raw[:int(pulse_duration * samplerate)] = amplitude
+        wave_raw = np.zeros(total_duration / samplerate)
+        wave_raw[:int(pulse_duration / samplerate)] = amplitude
 
         awg_to_plunger = self.hardware.parameters['awg_to_%s' % gate].get()
         wave = wave_raw / awg_to_plunger
         waveform[gate] = dict()
-        waveform[gate]['wave'] = wave
+        waveform[gate]['wave'] = wave[::-1]
         if wave_name is None:
             waveform[gate]['name'] = 'square_%s' % gate
         else:
