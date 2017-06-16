@@ -105,7 +105,10 @@ class virtual_awg(Instrument):
         awgs.append(self._awgs[marker_info[0]])
 
         sweep_info = dict()
-        wave_len = len(waveforms[sweepgates[0]]['wave'])
+        if len(sweepgates) is 0:
+            wave_len = period * self.AWG_clock + 1
+        else:
+            wave_len = len(waveforms[sweepgates[0]]['wave'])
         for g in sweepgates:
             sweep_info[self.awg_map[g]] = dict()
             sweep_info[self.awg_map[g]]['waveform'] = waveforms[g]['wave']
@@ -209,6 +212,11 @@ class virtual_awg(Instrument):
 #        wave_raw = np.roll(wave_raw, wave_raw.size-idx_zero)
 
         return wave_raw
+
+    def marker_read_out(self, period=1e-3, delete=True):
+        ''' Send marker for read-out. '''
+        sweep_info = self.sweep_init({}, period=period, delete=delete)
+        self.sweep_run(sweep_info)
 
     def sweep_gate(self, gate, sweeprange, period, width=.95, wave_name=None, delete=True):
         ''' Send a sawtooth signal with the AWG to a gate to sweep. Also
