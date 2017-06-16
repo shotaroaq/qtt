@@ -105,7 +105,10 @@ class virtual_awg(Instrument):
         awgs.append(self._awgs[marker_info[0]])
 
         sweep_info = dict()
-        wave_len = len(waveforms[sweepgates[0]]['wave'])
+        if len(sweepgates) is 0:
+            wave_len = period * self.AWG_clock + 1
+        else:
+            wave_len = len(waveforms[sweepgates[0]]['wave'])
         for g in sweepgates:
             sweep_info[self.awg_map[g]] = dict()
             sweep_info[self.awg_map[g]]['waveform'] = waveforms[g]['wave']
