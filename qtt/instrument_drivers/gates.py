@@ -211,13 +211,14 @@ class virtual_IVVI(Instrument):
             dot.edge(str(g), str(ix))
 
         return dot
-    
-    def set_fine(self, value, gate):
+
+    def set_fine(self, gate, value):
         """ Set the gate value by using both coarse and fine dacs. """
-        dac_res = self._instrument_list[self._gate_map[gate][0]]._dac_res
+#        dac_res = self._instrument_list[self._gate_map[gate][0]]._dac_res
+        dac_res = 4000 / 2**16
         if gate + '_fine' not in self.parameters:
             raise Exception('There is no fine gate for %s' % gate)
-        coarse_val = np.floor_divide(value, dac_res)
+        coarse_val = np.floor_divide(value, dac_res)*dac_res
         self.set(gate, coarse_val)
         fine_val = 100*np.mod(value, dac_res)
         self.set(gate+'_fine', fine_val)
