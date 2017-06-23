@@ -6,6 +6,7 @@ Created on Wed Feb  8 13:36:01 2017
 """
 
 #%%
+import numpy as np
 from qcodes import Instrument
 import logging
 from functools import partial
@@ -211,4 +212,12 @@ class virtual_IVVI(Instrument):
 
         return dot
     
-    
+    def set_fine(self, value, gate):
+        """ Set the gate value by using both coarse and fine dacs. """
+        dac_res = self._instrument_list[self._gate_map[gate][0]]._dac_res
+        if gate + '_fine' not in self.parameters:
+            raise Exception('There is no fine gate for %s' % gate)
+        coarse_val = np.floor_divide(value, dac_res)
+        self.set(gate, coarse_val)
+        fine_val = 100*np.mod(value, dac_res)
+        self.set(gate+'_fine', fine_val)
