@@ -1297,9 +1297,14 @@ def evaluateCross(param, im, verbose=0, fig=None, istep=1, istepmodel=1, linewid
         #print('x deviation!')
         cost += 10000
 
-    if len(param) > 7:
-        if np.abs(angleDiff(param[7], np.pi / 4)) > np.deg2rad(30):
+#    if len(param) > 7:
+#        if np.abs(angleDiff(param[7], np.pi / 4)) > np.deg2rad(30):
             #print('psi deviation!')
+#            cost += 10000
+
+    if len(param) > 7:
+        if np.abs(param[7]) > np.pi/2:
+            print('Inter-dot transition line tilted too much')
             cost += 10000
 
     if not fig is None:
