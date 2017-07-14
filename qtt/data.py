@@ -521,7 +521,10 @@ class image_transform:
 
         xx = extent
         x = ptx
-        nn = pt.shape[1]
+        if len(pt.shape) == 1:
+            nn = 1
+        else:
+            nn = pt.shape[1]
         ptx = np.zeros((2, nn))
         # ptx[1, :] = np.interp(x[1, :], [0, ny - 1], [xx[2], xx[3]])    # step
         # ptx[0, :] = np.interp(x[0, :], [0, nx - 1], [xx[0], xx[1]])    #
@@ -554,7 +557,10 @@ class image_transform:
 
         xx = extent
         x = pt
-        nn = pt.shape[1]
+        if len(pt.shape) == 1:
+            nn = 1
+        else:
+            nn = pt.shape[1]
         ptpixel = np.zeros((2, nn))
         f = scipy.interpolate.interp1d(
             [xx[2], xx[3]], [0, ny - 1], assume_sorted=False)
