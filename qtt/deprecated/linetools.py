@@ -948,7 +948,7 @@ def polygon_centroid(p):
 
 #%%
 
-def createCross(param, samplesize, l=20, w=2.5, lsegment=10, H=100, scale=None, lines=range(4), istep=1, centermodel=True, linesegment=True, addX=True, verbose=0):
+def createCross(param, samplesize, l=20, w=5, lsegment=10, H=100, scale=None, lines=range(4), istep=1, centermodel=True, linesegment=True, addX=True, verbose=0):
     """ Create a cross model
 
     The parameters are [x, y, width, alpha_1, ..., alpha_4, [rotation of polarization line] ]
@@ -1184,7 +1184,7 @@ def findCrossTemplate(imx, ksize=31, fig=None, istep=2, verbose=1, widthmv=6, le
 
 @pmatlab.static_var("scaling0", np.diag([1., 1, 1]))
 def evaluateCross(param, im, verbose=0, fig=None, istep=1, istepmodel=1, linewidth=2,
-                  usemask=False, use_abs=False):
+                  usemask=False, use_abs=False, w=2.5):
     """ Calculate cross matching score
 
     Args:
@@ -1211,7 +1211,7 @@ def evaluateCross(param, im, verbose=0, fig=None, istep=1, istepmodel=1, linewid
 
     if verbose:
         print('evaluateCross: patch shape %s' % (patch.shape,))
-    modelpatch, cdata = createCross(param, samplesize, centermodel=False, istep=istepmodel, verbose=verbose >= 2)
+    modelpatch, cdata = createCross(param, samplesize, centermodel=False, istep=istepmodel, w=w, verbose=verbose >= 2)
     (cc, lp, hp, ip, op, _, _, _) = cdata
 
     if use_abs:
@@ -1288,14 +1288,15 @@ def evaluateCross(param, im, verbose=0, fig=None, istep=1, istepmodel=1, linewid
             print('  add cost for negative param')
         cost += 10000
 
-    if np.abs(param[2]) > 7.:
+#    if np.abs(param[2]) > 7.:
+    if np.abs(param[2]) > 15.:
         if verbose:
             print('  add cost large param[2]')
         cost += 10000
 
-    if np.abs(param[2] - 10) > 8:
+#    if np.abs(param[2] - 10) > 8:
         #print('x deviation!')
-        cost += 10000
+#        cost += 10000
 
     if len(param) > 7:
         if np.abs(angleDiff(param[7], np.pi / 4)) > np.deg2rad(30):
@@ -1336,12 +1337,12 @@ def evaluateCross(param, im, verbose=0, fig=None, istep=1, istepmodel=1, linewid
 
 
 def fitModel(param0, imx, docb=False, verbose=1, cfig=None, ksizemv=41, istep=None, 
-             istepmodel=.5, cb=None, use_abs=False):
+             istepmodel=.5, cb=None, use_abs=False, w=2.5):
     """ Fit model of an anti-crossing """
     samplesize = [int(ksizemv / istepmodel), int(ksizemv / istepmodel)]
 
     #costfun = lambda param0: evaluateCrossX(param0, imx, samplesize, fig=None, istepmodel=istepmodel, istep=istep)[0]
-    costfun = lambda param0: evaluateCross(param0, imx, fig=None, istepmodel=istepmodel, usemask=False, istep=istep, use_abs=use_abs)[0]
+    costfun = lambda param0: evaluateCross(param0, imx, fig=None, istepmodel=istepmodel, usemask=False, istep=istep, use_abs=use_abs, w=w)[0]
 
     #costfun = lambda x0: costFunction(x0, pglobal, ims)
     vv = []
