@@ -369,7 +369,7 @@ def scan1D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
 
 
 #%%
-def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, verbose=1):
+def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True, verbose=1):
     """Fast 1D scan. 
 
     Args:
@@ -420,13 +420,13 @@ def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, verbose=1):
     if scanjob['scantype'] == 'scan1Dfast':
         sweeprange = (sweepdata['end'] - sweepdata['start'])
         waveform, sweep_info = station.awg.sweep_gate(
-            sweepdata['param'], sweeprange, period)
+            sweepdata['param'], sweeprange, period, delete=delete)
         sweepgate_value = (sweepdata['start'] + sweepdata['end']) / 2
         gates.set(sweepdata['param'], float(sweepgate_value))
     else:
         sweeprange = sweepdata['range']
         waveform, sweep_info = station.awg.sweep_gate_virt(
-            fast_sweep_gates, sweeprange, period)
+            fast_sweep_gates, sweeprange, period, delete=delete)
 
     qtt.time.sleep(wait_time_startscan)
 
