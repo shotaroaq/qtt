@@ -1289,7 +1289,7 @@ def evaluateCross(param, im, verbose=0, fig=None, istep=1, istepmodel=1, linewid
         cost += 10000
 
 #    if np.abs(param[2]) > 7.:
-    if np.abs(param[2]) > 15.:
+    if np.abs(param[2]) > 25.:
         if verbose:
             print('  add cost large param[2]')
         cost += 10000
