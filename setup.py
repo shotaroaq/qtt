@@ -8,15 +8,18 @@ def readme():
         return f.read()
 
 extras = {
+     # name: (module_name, minversion, pip_name)
     'Numpy': ('numpy', '1.9', None),
     'MatPlot': ('matplotlib', '1.5', None),
     'SciPi': ('scipy', '0.19', None),
-    'qcodes': ('qcodes', '0.1', None),
+    'qcodes': ('qcodes', '0.1.5', None),
     'scikit-image': ('skimage', '0.11', 'scikit-image'),
     'pandas': ('pandas', '0.15', None),
     'attrs': ('attr', '16.2.0', 'attrs'),
     'h5py': ('h5py', '0.1', None),
     'slacker': ('slacker', '0.1', None),
+    'pyzmqrpc': ('zmqrpc', '1.5', None),
+    'pytables': ('pytables', '3.2', None),
 }
 extras_require = {k: '>='.join(v[0:2]) for k, v in extras.items()}
 
@@ -36,7 +39,6 @@ setup(name='qtt',
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Science/Research',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Topic :: Scientific/Engineering'
@@ -45,10 +47,13 @@ setup(name='qtt',
       # if we want to install without tests:
       # packages=find_packages(exclude=["*.tests", "tests"]),
       packages=find_packages(),
-      requires=['numpy', 'matplotlib', 'scipy>=0.18', 'qcodes', 'pandas', 'attrs', 'qtpy', 'slacker', 'nose', 'hickle'], install_requires=[
+      #requires=['numpy', 'matplotlib', 'scipy', 'qcodes', 'pandas', 'attrs', 'qtpy', 'slacker', 'nose', 'hickle'],
+      install_requires=[
+          'matplotlib', 'pandas', 'attrs', 'qtpy', 'nose', 'slacker','hickle', 'pyzmqrpc',
           'numpy>=1.10',
           'IPython>=0.1',
-          'qcodes>=0.1.5'
+          'qcodes>=0.1.5',
+          'scipy'
           # nose is only for tests, but we'd like to encourage people to run tests!
           #'nose>=1.3',
       ],
