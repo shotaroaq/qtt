@@ -422,11 +422,13 @@ def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, verbose=1):
     wait_time_startscan = scanjob.get('wait_time_startscan', 0)
 
     if scanjob['scantype'] == 'scan1Dfast':
-        sweeprange = (sweepdata['end'] - sweepdata['start'])
-        waveform, sweep_info = station.awg.sweep_gate(
-            sweepdata['param'], sweeprange, period)
-        sweepgate_value = (sweepdata['start'] + sweepdata['end']) / 2
-        gates.set(sweepdata['param'], float(sweepgate_value))
+        if 'range' in sweepdata:
+            sweeprange = sweepdata['range']
+        else:
+            sweeprange = (sweepdata['end'] - sweepdata['start'])
+            sweepgate_value = (sweepdata['start'] + sweepdata['end']) / 2
+            gates.set(sweepdata['param'], float(sweepgate_value))
+        waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period)
     else:
         sweeprange = sweepdata['range']
         waveform, sweep_info = station.awg.sweep_gate_virt(
@@ -965,14 +967,14 @@ def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
     if diff_dir is not None:
         alldata = diffDataset(alldata, diff_dir=diff_dir, fig=None)
 
-    if scanjob['scantype'] == 'scan2Dvec':
-        for param in scanjob['phys_gates_vals']:
-            parameter = gates.parameters[param]
-            if type(stepvalues) is np.ndarray:
-                stepvalues = stepvalues_tmp
-            arr = DataArray(name=parameter.name, array_id=parameter.name, label=parameter.label, unit=parameter.unit, preset_data=scanjob['phys_gates_vals'][param], set_arrays=(
-                alldata.arrays[stepvalues.parameter.name], alldata.arrays[sweepvalues.parameter.name]))
-            alldata.add_array(arr)
+#    if scanjob['scantype'] == 'scan2Dvec':
+#        for param in scanjob['phys_gates_vals']:
+#            parameter = gates.parameters[param]
+#            if type(stepvalues) is np.ndarray:
+#                stepvalues = stepvalues_tmp
+#            arr = DataArray(name=parameter.name, array_id=parameter.name, label=parameter.label, unit=parameter.unit, preset_data=scanjob['phys_gates_vals'][param], set_arrays=(
+#                alldata.arrays[stepvalues.parameter.name], alldata.arrays[sweepvalues.parameter.name]))
+#            alldata.add_array(arr)
 
     if not hasattr(alldata, 'metadata'):
         alldata.metadata = dict()
@@ -1336,8 +1338,19 @@ def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='
 
     if scanjob['scantype'] == 'scan2Dfastvec':
         scanjob._parse_2Dvec()
-        waveform, sweep_info = station.awg.sweep_gate_virt(
-            fast_sweep_gates, sweepdata['range'], period)
+        if 'pulsedata' in scanjob:
+            sg = []
+            for g in sweepdata['param']:
+                if sweepdata['param'][g] != 0:
+                    sg.append(g)
+            if len(sg) > 1:
+                raise(Exception('AWG pulses does not yet support virtual gates'))
+            waveform, sweep_info = station.awg.sweepandpulse_gate(
+                {'gate':sg[0], 'sweeprange':sweepdata['range'], 'period':period},
+                scanjob['pulsedata'])
+        else:
+            waveform, sweep_info = station.awg.sweep_gate_virt(
+                fast_sweep_gates, sweepdata['range'], period)
     else:
         if 'range' in sweepdata:
             sweeprange = sweepdata['range']
