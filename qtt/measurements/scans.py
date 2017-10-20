@@ -1116,7 +1116,7 @@ def measuresegment_fpga(fpga, waveform, read_ch, Naverage=1):
     if 'width' in waveform:
         width = [waveform['width']]
         ReadDevice = ['FPGA_ch%d' % c for c in read_ch]
-        devicedata = fpga.readFPGA(ReadDevice=ReadDevice, Naverage=Naverage)
+        devicedata = fpga.readFPGA(ReadDevice=ReadDevice, Naverage=Naverage, waittime=waveform['period']*Naverage)
         data_raw = [devicedata[ii] for ii in read_ch]
         data = np.vstack([process_fpga_trace(d, width, Naverage)
                           for d in data_raw])

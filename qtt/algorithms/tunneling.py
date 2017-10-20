@@ -10,7 +10,7 @@ import numpy as np
 import scipy.ndimage
 
 
-def polmod_all_2slopes(x_data, par, kT):
+def polmod_all_2slopes(x_data, par, kT, model='one_ele'):
     """ Polarization line model.
 
     This model is based on [DiCarlo2004, Hensgens2017]. For an example see
@@ -31,7 +31,10 @@ def polmod_all_2slopes(x_data, par, kT):
         y_data (array): sensor data, e.g. from a sensing dot or QPC
     """
     x_data_center = x_data - par[1]
-    Om = np.sqrt(x_data_center**2 + 4 * par[0]**2)
+    if model == 'two_ele':
+        Om = np.sqrt(x_data_center**2 + 8 * par[0]**2)
+    else:
+        Om = np.sqrt(x_data_center**2 + 4 * par[0]**2)
     Q = 1 / 2 * (1 + x_data_center / Om * np.tanh(Om / (2 * kT)))
     slopes = par[3] + (par[4] - par[3]) * Q
     y_data = par[2] + x_data_center * slopes + Q * par[5]
@@ -39,7 +42,7 @@ def polmod_all_2slopes(x_data, par, kT):
     return y_data
 
 
-def polweight_all_2slopes(x_data, y_data, par, kT):
+def polweight_all_2slopes(x_data, y_data, par, kT, model='one_ele'):
     """ Cost function for polarization fitting.
 
     Args:
@@ -51,13 +54,13 @@ def polweight_all_2slopes(x_data, y_data, par, kT):
     Returns:
         total (float): sum of residues
     """
-    mod = polmod_all_2slopes(x_data, par, kT)
+    mod = polmod_all_2slopes(x_data, par, kT, model=model)
     total = np.linalg.norm(y_data - mod)
 
     return total
 
 
-def fit_pol_all(x_data, y_data, kT, maxiter=None, maxfun=5000, verbose=1, par_guess=None, method='fmin', returnextra=False):
+def fit_pol_all(x_data, y_data, kT, model='one_ele', maxiter=None, maxfun=5000, verbose=1, par_guess=None, method='fmin', returnextra=False):
     """ Polarization line fitting. 
 
     The default value for the maxiter argument of scipy.optimize.fmin is N*200
@@ -88,10 +91,10 @@ def fit_pol_all(x_data, y_data, kT, maxiter=None, maxfun=5000, verbose=1, par_gu
             print('fit_pol_all: trans_idx %s' % (trans_idx, ))
     fitdata = {}
     if method is 'fmin':
-        func = lambda par: polweight_all_2slopes(x_data, y_data, par, kT)
+        func = lambda par: polweight_all_2slopes(x_data, y_data, par, kT, model=model)
         par_fit = scipy.optimize.fmin(func, par_guess, maxiter=maxiter, maxfun=maxfun, disp=verbose >= 2)
     elif method is 'curve_fit':
-        func = lambda x_data, tc, x0, y0, ml, mr, h : polmod_all_2slopes(x_data, (tc, x0, y0, ml, mr, h), kT)
+        func = lambda x_data, tc, x0, y0, ml, mr, h : polmod_all_2slopes(x_data, (tc, x0, y0, ml, mr, h), kT, model=model)
         par_fit, par_cov = scipy.optimize.curve_fit(func, x_data, y_data, par_guess)
         fitdata['par_cov'] = par_cov
     else:
