@@ -18,7 +18,7 @@ except:
     pass
 
 import numpy.linalg
-from qtt import pgeometry as pmatlab
+from qtt import pgeometry 
 
 import qtt.tools
 import qtt.algorithms.generic
@@ -133,7 +133,7 @@ def uniqueArrayName(dataset, name0):
 from qcodes.plots.qcmatplotlib import MatPlot
 
 
-def diffDataset(alldata, diff_dir='y', fig=None, meas_arr_name='measured'):
+def diffDataset(alldata, diff_dir='y', sigma=2, fig=None, meas_arr_name='measured'):
     """ Differentiate a dataset and plot the result.
 
     Args:
@@ -141,10 +141,11 @@ def diffDataset(alldata, diff_dir='y', fig=None, meas_arr_name='measured'):
         diff_dir (str): direction to differentiate in
         meas_arr_name (str): name of the measured array to be differentiated
         fig (int): the number for the figure to plot
+        sigma (float):  parameter for gaussian filter kernel
     """
     meas_arr_name = alldata.default_parameter_name(meas_arr_name)
     meas_array = alldata.arrays[meas_arr_name]
-    imx = qtt.diffImageSmooth(meas_array.ndarray, dy=diff_dir)
+    imx = qtt.diffImageSmooth(meas_array.ndarray, dy=diff_dir, sigma=sigma)
     name = 'diff_dir_%s' % diff_dir
     name = uniqueArrayName(alldata, name)
     data_arr = qcodes.DataArray(
@@ -230,7 +231,7 @@ def show2D(dd, impixel=None, im=None, fig=101, verbose=1, dy=None, sigma=None, c
         unitstr = ' (%s)' % units
     if fig is not None:
         scanjob = dd.metadata.get('scanjob', dict())
-        pmatlab.cfigure(fig)
+        pgeometry.cfigure(fig)
         plt.clf()
 
         if impixel is None:
@@ -492,7 +493,7 @@ class image_transform:
           ptx (array): point in scan coordinates (sweep, step)
 
         """
-        ptx = pmatlab.projectiveTransformation(
+        ptx = pgeometry.projectiveTransformation(
             self.Hi, np.array(pt).astype(float))
 
         extent, g0, g1, vstep, vsweep, arrayname = dataset2Dmetadata(
@@ -546,7 +547,7 @@ class image_transform:
         # ptpixel[1, :] = np.interp(x[1, :], [xx[2], xx[3]], [0, ny - 1])
         # ptpixel[0, :] = np.interp(x[0, :], [xx[0], xx[1]], [0, nx - 1])
 
-        ptpixel = pmatlab.projectiveTransformation(
+        ptpixel = pgeometry.projectiveTransformation(
             self.H, np.array(ptpixel).astype(float))
 
         return ptpixel
@@ -576,8 +577,6 @@ except:
 #    warnings.warn('could not load deepdish...')
 
 
-def data_extension():
-    return 'pickle'
 
 
 def pickleload(pkl_file):
@@ -591,16 +590,18 @@ def pickleload(pkl_file):
             # different encoding
             with open(pkl_file, 'rb') as output:
                 data2 = pickle.load(output, encoding='latin')
-            # pickle.load(pkl_file, fix_imports=True, encoding="ASCII", errors="strict")
         else:
             data2 = None
     return data2
+
+def _data_extension():
+    return 'pickle'
 
 
 def load_data(mfile: str):
     ''' Load data from specified file '''
     # return hickle.load(mfile)
-    ext = data_extension()
+    ext = _data_extension()
     if ext is not None:
         if not mfile.endswith(ext):
             mfile = mfile + '.' + ext
@@ -611,7 +612,7 @@ def load_data(mfile: str):
 
 def write_data(mfile: str, data):
     ''' Write data to specified file '''
-    ext = data_extension()
+    ext = _data_extension()
     if ext is not None:
         if not mfile.endswith(ext):
             mfile = mfile + '.' + ext
@@ -622,36 +623,6 @@ def write_data(mfile: str, data):
         pickle.dump(data, fid)
     # hickle.dump(metadata, mfile)
     #_=deepdish.io.save(mfile, data)
-
-
-def loadQttData(path: str):
-    ''' Wrapper function
-
-    :param path: filename without extension
-    :returns dataset: The dataset
-    '''
-    warnings.warn('please use load_data instead')
-    mfile = path
-    ext = data_extension()
-    if not mfile.endswith(ext):
-        mfile = mfile + '.' + ext
-    # dataset=deepdish.io.load(mfile)
-    dataset = load_data(mfile)
-    return dataset
-
-
-def writeQttData(dataset, path, metadata=None):
-    ''' Wrapper function
-
-    :param path: filename without extension
-    '''
-    warnings.warn('please use write_data instead')
-    mfile = path
-    ext = data_extension()
-    if not mfile.endswith(ext):
-        mfile = mfile + ext
-    # deepdish.io.save(mfile, dataset)
-    write_data(mfile, dataset)
 
 
 def loadDataset(path):
@@ -724,7 +695,7 @@ def experimentFile(outputdir: str = '', tag=None, dstr=None, bname=None):
     if dstr is None:
         dstr = getDateString()
 
-    ext = data_extension()
+    ext = _data_extension()
     basename = '%s' % (dstr,)
     if bname is not None:
         basename = '%s-' % bname + basename
@@ -737,7 +708,7 @@ def experimentFile(outputdir: str = '', tag=None, dstr=None, bname=None):
 def loadExperimentData(outputdir, tag, dstr):
     path = experimentFile(outputdir, tag=tag, dstr=dstr)
     logging.info('loadExperimentdata %s' % path)
-    dataset = pmatlab.load(path)
+    dataset = pgeometry.load(path)
 
     dataset = load_data(path)
     return dataset

@@ -197,7 +197,7 @@ class sensingdot_t:
             gates.set(gg[ii], sdval[ii])
 
         startval = sdval[1] + scanrange
-        startval = np.minimum(startval, 100)
+        startval = np.minimum(startval, 300)
         endval = sdval[1] - scanrange
         endval = np.maximum(endval, -700)
 
@@ -494,11 +494,14 @@ class MultiParameter(qcodes.instrument.parameter.Parameter):
     def __init__(self, name, params, label=None):
         self.name = name
         self.params = params
+        self.vals = qcodes.utils.validators.Anything()
+        #Legacy
         self._vals = qcodes.utils.validators.Anything()
         self._instrument = 'dummy'
         if label is None:
             self.label = self.name
         self.unit = 'a.u.'
+        self.vals = None
         
     def get(self):
         values = []
@@ -522,7 +525,7 @@ class CombiParameter(qcodes.instrument.parameter.Parameter):
     def __init__(self, name, params, label=None, unit=None):
         self.name = name
         self.params = params
-        self._vals = qcodes.utils.validators.Anything()
+        self.vals = qcodes.utils.validators.Anything()
         self._instrument = 'dummy'
         if label is None:
             self.label = self.name

@@ -50,6 +50,7 @@ coverage.xml
 *.mo
 *.pot
 
+
 # Django stuff:
 *.log
 
@@ -62,6 +63,8 @@ target/
 
 # Temporary files
 *~
+untitled*py
+Untitled*py
 
 # Misc
 tools/*.asv
@@ -70,6 +73,7 @@ examples/dummy.*
 examples/dot-dummy.*
 examples/2016*
 testing
+dev/
 test*.bin
 test*.pickle
 *.profile

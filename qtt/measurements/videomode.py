@@ -10,7 +10,7 @@ import numpy as np
 from scipy import ndimage
 
 import qtt
-from qcodes.instrument.parameter import StandardParameter
+from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Numbers
 from qtt.live_plotting import livePlot
 from qtt.tools import connect_slot
@@ -92,7 +92,7 @@ class VideoMode:
         self.sweepparams = sweepparams
         self.sweepranges = sweepranges
         self.fpga_ch = minstrument
-        self.Naverage = StandardParameter('Naverage', get_cmd=self._get_Naverage, set_cmd=self._set_Naverage, vals=Numbers(1, 1023))
+        self.Naverage = Parameter('Naverage', get_cmd=self._get_Naverage, set_cmd=self._set_Naverage, vals=Numbers(1, 1023))
         self._Naverage_val = Naverage
         self.resolution = resolution
         self.sample_rate = sample_rate
@@ -152,6 +152,7 @@ class VideoMode:
     def run(self, startreadout = True):
         """ Programs the AWG, starts the read-out and the plotting. """
         if type(self.sweepranges) is int:
+            # 1D scan
             if type(self.sweepparams) is str:
                 waveform, _ = self.station.awg.sweep_gate(self.sweepparams, self.sweepranges, period=1e-3)
             elif type(self.sweepparams) is dict:
@@ -160,6 +161,7 @@ class VideoMode:
                 raise Exception('arguments not supported')
             self.datafunction = videomode_callback(self.station, waveform, self.Naverage.get(), self.fpga_ch)
         elif type(self.sweepranges) is list:
+            # 2D scan
             if type(self.sweepparams) is list:
                 waveform, _ = self.station.awg.sweep_2D(self.sampling_frequency.get(), self.sweepparams, self.sweepranges, self.resolution)
             elif type(self.sweepparams) is dict:

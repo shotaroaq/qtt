@@ -1,14 +1,31 @@
 from setuptools import setup, find_packages
 from distutils.version import StrictVersion
 from importlib import import_module
-
+import platform
+import re
 
 def readme():
     with open('README.md') as f:
         return f.read()
 
+def get_version(verbose=1):
+    """ Extract version information from source code """
+
+    try:
+        with open('qtt/version.py', 'r') as f:
+            ln = f.readline()
+            # print(ln)
+            m = re.search('.* ''(.*)''', ln)
+            version = (m.group(1)).strip('\'')
+    except Exception as E:
+        print(E)
+        version = 'none'
+    if verbose:
+        print('get_version: %s' % version)
+    return version
+
 extras = {
-     # name: (module_name, minversion, pip_name)
+    # name: (module_name, minversion, pip_name)
     'Numpy': ('numpy', '1.9', None),
     'MatPlot': ('matplotlib', '1.5', None),
     'SciPi': ('scipy', '0.19', None),
@@ -19,14 +36,21 @@ extras = {
     'h5py': ('h5py', '0.1', None),
     'slacker': ('slacker', '0.1', None),
     'pyzmqrpc': ('zmqrpc', '1.5', None),
-    'pytables': ('pytables', '3.2', None),
+    'pytables': ('tables', '3.2', None),    
+    'colorama': ('colorama', '0.1', None),    
+    'apscheduler': ('apscheduler', '3.4', None),    
+    'Polygon3': ('Polygon', '0.1', None),    
 }
+
+if platform.system()=='Windows':
+    extras['pywin32'] =  ('win32', '0.1', None)
+
 extras_require = {k: '>='.join(v[0:2]) for k, v in extras.items()}
 
 print('packages: %s' % find_packages())
 
 setup(name='qtt',
-      version='0.1.3',
+      version=get_version(),
       use_2to3=False,
       author='Pieter Eendebak',
       author_email='pieter.eendebak@tno.nl',
@@ -49,10 +73,11 @@ setup(name='qtt',
       packages=find_packages(),
       #requires=['numpy', 'matplotlib', 'scipy', 'qcodes', 'pandas', 'attrs', 'qtpy', 'slacker', 'nose', 'hickle'],
       install_requires=[
-          'matplotlib', 'pandas', 'attrs', 'qtpy', 'nose', 'slacker','hickle', 'pyzmqrpc',
+          'matplotlib', 'pandas', 'attrs', 'qtpy', 'nose', 'slacker', 'hickle', 'pyzmqrpc',
           'numpy>=1.10',
           'IPython>=0.1',
           'qcodes>=0.1.5',
+          'Polygon3',
           'scipy'
           # nose is only for tests, but we'd like to encourage people to run tests!
           #'nose>=1.3',
@@ -81,5 +106,8 @@ for extra, (module_name, min_version, pip_name) in extras.items():
         module = import_module(module_name)
         if StrictVersion(module.__version__) < StrictVersion(min_version):
             print(version_template.format(module_name, min_version, extra))
+    except AttributeError:
+        # probably a package not providing the __version__ attribute
+        pass
     except ImportError:
         print(missing_template.format(module_name, extra))
