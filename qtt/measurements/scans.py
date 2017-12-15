@@ -558,7 +558,10 @@ class scanjob_t(dict):
         for f in ['sweepdata', 'stepdata']:        
             if f in self:
                 if gate_settle:
-                    t=gate_settle(self[f]['param'])
+                    if f=='stepdata':
+                        t=2.5*gate_settle(self[f]['param'])
+                    else:
+                        t=gate_settle(self[f]['param'])
                 self[f]['wait_time'] = max(t, min_time)
         self['wait_time_startscan']=.5+2*t
         
@@ -861,7 +864,7 @@ lin_comb_type = dict
 """ Class to represent linear combinations of parameters  """
 
 
-def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', diff_dir=None, verbose=1):
+def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', diff_dir=None,  write_period = 60, update_period = 5, verbose=1):
     """Make a 2D scan and create dictionary to store on disk.
 
     For 2D vector scans see also the documentation of the _convert_scanjob_vec
@@ -870,6 +873,8 @@ def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
     Args:
         station (object): contains all the instruments
         scanjob (scanjob_t): data for scan
+        write_period (float): save-to-disk interval in seconds, None for no writing before finished
+        update_period (float): liveplot update interval in seconds, None for no updates
 
     Returns:
         alldata (DataSet): contains the measurement data and metadata
@@ -935,12 +940,20 @@ def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
         liveplotwindow = qtt.live.livePlot()
     if liveplotwindow:
         liveplotwindow.clear()
-        liveplotwindow.add(
-            alldata.default_parameter_array(paramname=plotparam))
+        if plotparam is 'all':
+            for i in range(np.min(len(mparams))):
+                liveplotwindow.add(
+                        alldata.default_parameter_array(paramname=measure_names[i]), subplot=i+1)
+        else:
+            liveplotwindow.add(alldata.default_parameter_array(paramname=plotparam))
 
     tprev = time.time()
     
+    alldata.write_period = write_period
+    
     for ix, x in enumerate(stepvalues):
+        alldata.store((ix,), {stepvalues.parameter.name:x})
+        
         if verbose:
             t1=time.time() - t0
             t1_str=qtt.time.strftime('%H:%M:%S',qtt.time.gmtime(t1))
@@ -955,6 +968,7 @@ def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
             else:
                 tprint('scan2D: %d/%d: time %s (~%s remaining): setting %s to %.3f' %
                    (ix, len(stepvalues), t1_str, time_est_str, stepvalues.name, x), dt=1.5)
+                
         if scanjob['scantype'] == 'scan2Dvec':
             pass
         else:
@@ -972,17 +986,22 @@ def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
                     qtt.time.sleep(wait_time_step)
             if wait_time_sweep > 0:
                 time.sleep(wait_time_sweep)
-
+            
+            datapoint = {}
+            datapoint[sweepvalues.parameter.name] = y
+            
             for ii, p in enumerate(mparams):
-                value = p.get()
-                alldata.arrays[measure_names[ii]].ndarray[ix, iy] = value
-
-        if ix == len(stepvalues) - 1 or ix % 5 == 0:
-            delta, tprev, update = delta_time(tprev, thr=.2)
-            if update and liveplotwindow:
-                liveplotwindow.update_plot()
-                pg.mkQApp().processEvents()
-
+                datapoint[measure_names[ii]] = p.get()
+            
+            alldata.store((ix,iy), datapoint)
+            
+            if update_period is not None:
+                delta, tprev, update = delta_time(tprev, thr=update_period)
+                
+                if update and liveplotwindow:
+                    liveplotwindow.update_plot()
+                    pg.mkQApp().processEvents()
+        
         if qtt.abort_measurements():
             print('  aborting measurement loop')
             break
@@ -1230,10 +1249,11 @@ def measuresegment_m4i(digitizer, waveform, read_ch, mV_range, Naverage=100, pro
     """
     
     drate = digitizer.sample_rate()
+    maxrate = digitizer.max_sample_rate()
     if drate == 0:
         raise Exception('sample rate of m4i is zero, please reset the digitizer')
-    if drate > digitizer.max_sample_rate():
-        raise Exception('sample rate of m4i is >= 50 MHz, this is not supported')
+    if drate > maxrate:
+        raise Exception('sample rate of m4i is > %d MHz, this is not supported' % (maxrate//1e6))
 
     # code for offsetting the data in software
     signal_delay = getattr(digitizer, 'signal_delay', None)
