@@ -7,6 +7,7 @@ import logging
 import warnings
 import pandas as pd
 import numpy as np
+import gc
 
 try:
     import hickle
@@ -184,5 +185,6 @@ def store_logdata(datadict, filename, tag='metadata'):
     df = pd.DataFrame([data], columns=names)
 
     store.append(tag, df)
-
+    store.close()
+    gc.collect()
     return data
