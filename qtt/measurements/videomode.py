@@ -14,9 +14,10 @@ import pyqtgraph as pg
 
 import qtt
 from qcodes.instrument.parameter import Parameter
+#from qtt.tools import connect_slot
 from qcodes.utils.validators import Numbers
 from qtt.live_plotting import livePlot
-from qtt.tools import connect_slot
+#from qtt.tools import connect_slot
 import qtpy.QtWidgets as QtWidgets
 from qtpy import QtCore
 from qtt.measurements.scans import plotData, makeDataset_sweep, makeDataset_sweep_2D
@@ -111,23 +112,23 @@ class VideoMode:
         self.verbose = verbose
         self.sweepparams = sweepparams
         self.sweepranges = sweepranges
-
+        
         self.minstrumenthandle = minstrument[0]
-        self.channels = minstrument[1]
+        self.channels = minstrument[1]        
         if isinstance(self.channels, int):
             self.channels = [self.channels]
-
-        self.Naverage = Parameter('Naverage', get_cmd=self._get_Naverage,
-                                  set_cmd=self._set_Naverage, vals=Numbers(1, 1023))
+            
+        self.Naverage = Parameter('Naverage', vals=Numbers(1, 1023))
+        #self.Naverage = Parameter('Naverage', get_cmd=self._get_Naverage,
+        #                          set_cmd=self._set_Naverage, vals=Numbers(1, 1023))
         self._Naverage_val = Naverage
         self.resolution = resolution
         self.sample_rate = sample_rate
         self.diff_dir = diff_dir
         self.datalock = threading.Lock()
-
         # for addPPT
         self.scanparams = {'sweepparams': sweepparams, 'sweepranges': sweepranges, 'minstrument': minstrument}
-        
+
         # parse instrument
         if 'fpga' in station.components:
             self.sampling_frequency = station.fpga.sampling_frequency
@@ -153,12 +154,11 @@ class VideoMode:
             nplots = len(self.channels)
         self.nplots = nplots
         self.window_title = "%s: nplots %d" % (self.__class__.__name__, self.nplots )
-
         win = QtWidgets.QWidget()
         win.setWindowTitle(self.window_title)
         self.mainwin = win
-
         vertLayout = QtWidgets.QVBoxLayout()
+
         self.topLayout = None
         if show_controls:
             topLayout = QtWidgets.QHBoxLayout()
@@ -168,9 +168,8 @@ class VideoMode:
             topLayout.addWidget(win.stop_button)
             if add_ppt:
                 win.ppt_button = QtWidgets.QPushButton('Copy to PPT')
-                win.ppt_button.clicked.connect(connect_slot(self.addPPT))
+                win.ppt_button.clicked.connect(self.addPPT)
                 topLayout.addWidget(win.ppt_button)
-
             win.averaging_box = QtWidgets.QCheckBox('Averaging')
 
             for b in [win.start_button, win.stop_button]:
@@ -182,38 +181,29 @@ class VideoMode:
 
         win.setLayout(vertLayout)
         # self.mainwin.add
-
         self.plotLayout = QtWidgets.QHBoxLayout()
         vertLayout.addLayout(self.plotLayout)
-
         self.lp = []
         for ii in range(nplots):
-
             lp = livePlot(None, self.station.gates,
                           self.sweepparams, self.sweepranges, show_controls=False,
                           plot_title=str(self.minstrumenthandle)+' '  + str(self.channels[ii]) )
             self.lp.append(lp)
             self.plotLayout.addWidget(self.lp[ii].win)
-
         if show_controls:
-            self.mainwin.averaging_box.clicked.connect(
-                connect_slot(self.enable_averaging_slot))
-
-        self.mainwin.start_button.clicked.connect(connect_slot(self.run))
-        self.mainwin.stop_button.clicked.connect(connect_slot(self.stop))
+            self.mainwin.averaging_box.clicked.connect(self.enable_averaging_slot) #connect_slot(self.enable_averaging_slot))
+        self.mainwin.start_button.clicked.connect(self.run) #connect_slot(self.run))
+        self.mainwin.stop_button.clicked.connect(self.stop)
         self.box = self._create_naverage_box(Naverage=Naverage)
         self.topLayout.addWidget(self.box)
-
         self.setGeometry = self.mainwin.setGeometry
         self.mainwin.resize(800, 600)
         self.mainwin.show()
-
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.updatebg)
-
         if dorun:
             self.run()
-
+            
     def enable_averaging_slot(self, *args, **kwargs):
         """ Update the averaging mode of the widget """
         self._averaging_enabled = self.mainwin.averaging_box.checkState()
@@ -292,7 +282,7 @@ class VideoMode:
         box.setPrefix('Naverage: ')
         box.setValue(Naverage)
         box.setMaximumWidth(120)
-        box.valueChanged.connect(self.Naverage.set)
+        #box.valueChanged.connect(self.Naverage.set)
         return box
 
     def close(self):
@@ -340,9 +330,9 @@ class VideoMode:
                                                              'gates_horz'], self.sweepparams['gates_vert'], self.sweepranges, self.resolution)
             else:
                 raise Exception('arguments not supported')
-            self.datafunction = videomode_callback(self.station, waveform, self.Naverage.get(), minstrument=(
+            self.datafunction = videomode_callback(self.station, waveform, 1, minstrument=(
                 self.minstrumenthandle, self.channels), resolution=self.resolution, diff_dir=self.diff_dir)
-
+            '''self.Naverage.get(),'''
         self._waveform = waveform
         #self.lp.datafunction = self.datafunction
         # self.box.setValue(self.Naverage.get())
