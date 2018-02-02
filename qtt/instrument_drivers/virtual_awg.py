@@ -253,12 +253,13 @@ class virtual_awg(Instrument):
 
         return wave_raw
     
-    def make_pulses(self, voltages, waittimes, mvrange=None):
+    def make_pulses(self, voltages, waittimes, filtercutoff=None, mvrange=None):
         """Make a pulse sequence with custom voltage levels and wait times at each level.
         
         Arguments:
             voltages (list of floats): voltage levels to be applied in the sequence
             waittimes (list of floats): duration of each pulse in the sequence
+            filtercutoff (float): cutoff frequency of a 1st order butterworth filter to make the pulse steps smoother 
             
         Returns:
             wave_raw (array): raw data which represents the waveform
@@ -271,7 +272,10 @@ class virtual_awg(Instrument):
         v_wave = float((mvrange[0] - mvrange[1]) / self.ch_amp)
         v_prop = [2 * ((x - mvrange[1]) / (mvrange[0] - mvrange[1])) - 1 for x in voltages]
         wave_raw = np.concatenate([x * v_wave * np.ones(y) for x, y in zip(v_prop, samples)])
-        
+        if filtercutoff is not None:
+            b,a = scipy.signal.butter(1,0.5*filtercutoff/self.AWG_clock, btype='low', analog=False, output='ba')
+            wave_raw = scipy.signal.filtfilt(b,a,wave_raw)
+            
         return wave_raw
 
     def check_frequency_waveform(self, period, width):
