@@ -256,6 +256,7 @@ def getDefaultParameter(data):
 
 #%%
 
+
 def scan1D(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', verbose=1):
     """Simple 1D scan. 
 
@@ -1376,6 +1377,7 @@ def measuresegment(waveform, Naverage, minstrhandle, read_ch, mV_range=2000, pro
     if np.array(data).size == 0:
         warnings.warn('measuresegment: received empty data array')
     return data
+
 
 def acquire_segments(station, parameters, average=True, mV_range=2000, save_to_disk=True, location=None):
     """Record triggered segments as time traces into dataset. AWG must be already sending a trigger pulse per segment.
