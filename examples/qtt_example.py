@@ -67,7 +67,7 @@ snapshotdata = station.snapshot()
 
 param_left=station.model.bottomgates[0]
 param_right=station.model.bottomgates[-1]
-scanjob = scanjob_t({'sweepdata': dict({'param': param_right, 'start': -500, 'end': 1, 'step': .8, 'wait_time': 5e-3}), 'minstrument': [keithley3.amplitude]})
+scanjob = scanjob_t({'sweepdata': dict({'param': param_right, 'start': -500, 'end': 1, 'step': .8, 'wait_time': 3e-3}), 'minstrument': [keithley3.amplitude]})
 data1d = qtt.measurements.scans.scan1D(station, scanjob, location=None, verbose=1)
 
 
@@ -78,7 +78,6 @@ save_state(station)
 #%% Print the scanned data
 
 print(data1d.default_parameter_name())
-
 
 #%% Make a 2D scan
 start = -500
@@ -128,8 +127,10 @@ gates.resetgates(gv, gv, verbose=0)
 
 print('virtual and physical gates: ' + ','.join( '%.2f' % x for x in [virts.VP1(),virts.VP2(),virts.VP3(), gates.P1(), gates.P2(), gates.P3() ]) )
 
-
-
+vgates=['vSD1b'] + virts.vgates() + ['vSD1a']
+pgates=['SD1b'] + virts.pgates() + ['SD1a']
+virts2= qtt.instrument_drivers.virtual_gates.extend_virtual_gates(vgates, pgates, virts, name='vgates')
+    
 #%% Send data to powerpoint
 print('add copy data to Powerpoint use the following:')
 print('   qtt.tools.addPPT_dataset(data);')
@@ -140,5 +141,4 @@ if 0:
 
 qtt.instrument_drivers.virtual_gates.test_virtual_gates()
 qtt.measurements.scans.test_scan2D()
-
 

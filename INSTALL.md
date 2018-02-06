@@ -93,10 +93,18 @@ For Unix systems the proper command is `python setup.py develop --user`.
 * [Spectrum M4i](http://spectrum-instrumentation.com/en/m4i-platform-overview)
 * [SPI-rack](https://github.com/Rubenknex/SPI-rack)
 
+- To install the low-level SPI driver run:
+```
+pip install git+https://github.com/Rubenknex/SPI-rack.git
+
+```
 ## Spyder
 
-* Use a IPython console and set the IPhyton backend graphics option to QT5. This ensures
- correctly displaying the Paramater viewer and DataBrowser
+* Use the IPython console and set the IPhyton backend graphics option to QT5. This ensures
+ correctly displaying the Paramater viewer and DataBrowser. The option is here:
+```
+Tools->Preferences->IPython console->Graphics->Backend
+```
 * In Tools->Preferences->Python interpreter, uncheck the box Enable UMR 
 
 ## Create startup shortcuts
@@ -186,11 +194,15 @@ pip install git+https://github.com/telegraphic/hickle.git@dev
 
 Manual installation:
 ```
-> conda install numpy scipy pyqtgraph spyder nose pandas scikit-learn scikit-image rope jupyter matplotlib h5py pywin32 shapely
+> conda install numpy scipy pyqtgraph spyder autopep8 nose pandas scikit-learn scikit-image rope jupyter matplotlib h5py pywin32 
 > cd [QTTDIR]
-> pip3 install --user -r develop_requirements.txt
-> pip install slacker attrs pyserial redis pyvisa Polygon3 colorama pyvisa
+> pip install --user -r develop_requirements.txt
 > conda install -c conda-forge opencv
+> pip install git+https://github.com/telegraphic/hickle.git@dev
+```
+
+```
+> pip install slacker attrs pyserial redis pyvisa Polygon3 colorama pyvisa
 ```
 
 There was a bug in qtconsole, see [qtconsole#145](https://github.com/jupyter/qtconsole/pull/145), so do

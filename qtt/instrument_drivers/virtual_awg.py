@@ -17,6 +17,7 @@ from qcodes.plots.pyqtgraph import QtPlot
 from qcodes import DataArray
 import qtt
 
+logger = logging.getLogger(__name__)
 #%%
 
 
@@ -31,10 +32,9 @@ class virtual_awg(Instrument):
         delay_FPGA (float): time delay of signals going through fridge
         
     """
-    shared_kwargs = ['instruments', 'hardware']
-
     def __init__(self, name, instruments=[], awg_map=None, hardware=None, verbose=1, **kwargs):
         super().__init__(name, **kwargs)
+        logger.info('initialize virtual_awg %s' % name)
         self._awgs = instruments
         self.awg_map = awg_map
         self.hardware = hardware
@@ -42,9 +42,8 @@ class virtual_awg(Instrument):
         self.delay_FPGA = 2.0e-6  # should depend on filterboxes
         self.corr = .02e-6
         self.maxdatapts = 16e6  # This used to be set to the fpga maximum, but that maximum should not be handled here
-        qtt.loggingGUI.installZMQlogger()
-        logging.info('virtual_awg: setup')
 
+        self.awg_seq = None
         if len(self._awgs) == 0 and self.verbose:
             print('no physical AWGs connected')
         elif len(self._awgs) == 1:
@@ -54,9 +53,8 @@ class virtual_awg(Instrument):
             self.awg_cont = self._awgs[self.awg_map['awg_mk'][0]]
             self.awg_cont.set('run_mode', 'CONT')
             self.awg_seq = self._awgs[(self.awg_map['awg_mk'][0] + 1) % 2]
-            self.awg_seq.set('run_mode', 'SEQ')
-            self.awg_seq.sequence_length.set(1)
-            self.awg_seq.set_sqel_trigger_wait(1, 0)
+            
+            self._set_seq_mode(self.awg_seq)
             self.delay_AWG = self.hardware.parameters['delay_AWG'].get()
         else:
             raise Exception(
@@ -70,6 +68,11 @@ class virtual_awg(Instrument):
             for i in range(1, 5):
                 awg.set('ch%s_amp' % i, self.ch_amp)
 
+    def _set_seq_mode(self, a):
+        a.set('run_mode', 'SEQ')
+        a.sequence_length.set(1)
+        a.set_sqel_trigger_wait(1, 0)
+        
     def get_idn(self):
         ''' Overrule because the default VISA command does not work '''
         IDN = {'vendor': 'QuTech', 'model': 'virtual_awg',
@@ -82,9 +85,12 @@ class virtual_awg(Instrument):
         Args:
             gate ()
         """
+        if gate is None:
+            return False
+        
         if isinstance(gate, dict):
-            # vector scan, assume we can do it fast
-            return True
+            # vector scan, assume we can do it fast if all components are fast
+            return np.all([self.awg_gate(g) for g in gate])
         if self.awg_map is None:
             return False
         
@@ -174,7 +180,7 @@ class virtual_awg(Instrument):
             'ch%i_m%i_high' % (marker_info[1], marker_info[2]), 2.6)
 
         # awg marker
-        if hasattr(self, 'awg_seq'):
+        if getattr(self, 'awg_seq', None) is not None:
             awg_info = self.awg_map['awg_mk']
             if awg_info[:2] not in sweep_info:
                 awgs.append(self._awgs[awg_info[0]])
@@ -384,7 +390,7 @@ class virtual_awg(Instrument):
         period = sweepdata['period']
         width = sweepdata.get('width',0.95)
         
-        gate_voltages = pulsedata['gate_voltages']
+        gate_voltages = pulsedata['gate_voltages'].copy()
         for g in gate_voltages:
             gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]]
         waittimes = pulsedata['waittimes']
@@ -586,7 +592,7 @@ class virtual_awg(Instrument):
 
         # TODO: Implement compensation of sensing dot plunger
 
-        sweep_info = self.sweep_init(waveform, period=period_vert, delete=delete)
+        sweep_info = self.sweep_init(waveform, period=period_vert, delete=delete, samp_freq=samp_freq)
         self.sweep_run(sweep_info)
 
         waveform['width_horz'] = width
@@ -596,6 +602,7 @@ class virtual_awg(Instrument):
         waveform['resolution'] = resolution
         waveform['samplerate'] = 1 / self.AWG_clock
         waveform['period'] = period_vert
+        waveform['period_horz'] = period_horz
         for channels in sweep_info:
             if 'delay' in sweep_info[channels]:
                 waveform['markerdelay'] = sweep_info[channels]['delay']
@@ -681,7 +688,9 @@ class virtual_awg(Instrument):
                 val = f()
                 if val != 4.0:
                     warnings.warn('AWG channel %d output not at 4.0 V' % ii)
-                    
+        if self.awg_seq is not None:
+            self._set_seq_mode(self.awg_seq)
+            
     def set_amplitude(self, amplitude):
         """ Set the AWG peak-to-peak amplitude for all channels
 

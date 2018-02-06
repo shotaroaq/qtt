@@ -62,24 +62,88 @@ def localMaxima(arr, radius=1, thr=None):
         local_max[arr < thr] = 0
     return np.where(local_max)
 
+import numpy as np
+from skimage.feature import peak_local_max
+
+
+def subpixelmax(A, mpos, verbose=0):
+    """ Calculate maximum position with subpixel accuracy
+    
+    Args:
+        A (1D array):
+        mpos (array with integer indicess):
+        verbose (int):
+        
+    Returns:
+        subpos (array with subpixel positions):
+        subval (array):
+    """
+    
+    A=np.array(A)
+    if np.array(mpos).size==0:
+        # corner case
+        subpos = mpos
+        return
+    
+    dsize=A.size
+    val=A[mpos]
+    
+    mp = np.maximum(mpos-1,0);
+    pp = np.minimum(mpos+1, dsize-1);
+        
+    valm=A[mp]; # value to the left
+    valp=A[pp]; # value to the right
+    
+    cy = val;
+    ay = (valm + valp)/2 - cy;
+    by = ay + cy - valm
+    shift = -by/(2*ay)  # Maxima of quadradic
+    
+    if verbose:
+        print('subpixelmax: mp %d, pp %d\n', mp, pp);
+        print('subpixelmax: ap %.3f, by %.3f , cy %.3f\n', ay, by, cy);
+    
+    shift[ay==0]=0;   # fix for flat areas
+    subpos = mpos+shift
+
+    subval= ay*shift*shift+by*shift+cy;
+
+    if verbose:
+        print('subpixelmax1d: shift %.3f\n', shift);
+    
+    return subpos, subval
+    
+
+def test_subpixel(fig=None):
+    import qtt
+    import matplotlib.pyplot as plt
+    A = np.random.rand(40,)**2+1e1;
+    A=qtt.algorithms.generic.smoothImage(A)
+
+    mpos = peak_local_max(A, min_distance=3).flatten()
+    subpos, subval=subpixelmax(A, mpos);
+
+    if fig:    
+        plt.figure(fig); plt.clf();
+        plt.plot(np.arange(A.size), A, '.:r', label='data points');
+        
+        plt.plot(mpos, A[mpos], 'om', label='integer maxima');
+        plt.plot(subpos, subval, '.g', markersize=15, label='subpixel maxima');
+        plt.legend(numpoints=1 )  
 
 #%%
-
-
 
 def rescaleImage(im, imextent, mvx=None, mvy=None, verbose=0, interpolation=None, fig=None):
     """ Scale image to make pixels at specified resolution
 
     Args:
       im (array): input image
-      imextend: list of 4 floats
-        coordinates of image region (x0, x1, y0, y1)
-      mvx, mvy (float or None)
-        number of units per pixel requested. If None then keep unchanged
+      imextend (list of 4 floats): coordinates of image region (x0, x1, y0, y1)
+      mvx, mvy (float or None): number of units per pixel requested. If None then keep unchanged
 
     Returns:
-       ims: transformed image
-       H: transformation matrix from units to pixels
+       ims (array): transformed image
+       H (array): transformation matrix from units to pixels
          H is the homogeneous transform from original to scaled image
        (mvx, mvy, fx, dy) : internal data
 
@@ -428,11 +492,10 @@ def getValuePixel(imx, pt):
     """ Return interpolated pixel value in an image
 
     Args:
-
         im (numpy array): input image
         pt (numpy array): list of points
+    
     Returns:
-
         vv (numpy array): interpolated value
     """
     ptf = np.array(pt).flatten()

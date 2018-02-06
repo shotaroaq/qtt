@@ -38,9 +38,9 @@ def analyseCoulombPeaks(alldata, fig=None):
     """ Find Coulomb peaks in a 1D dataset 
 
     Args:
-        alldata (DataSet)
+        alldata (DataSet): data to analyse
         fig (int or None): figure handle to plot
-    Returns
+    Returns:
         peaks (list): fitted peaks
     """
     x, y = qtt.data.dataset1Ddata(alldata)
@@ -60,11 +60,17 @@ def fitCoulombPeaks(x, y, lowvalue=None, verbose=1, fig=None, istep=1):
 
     Arguments
     ---------
-        x, y - array
+        x : array
             data series
-        istep - float
+        y : array
+            data series
+        istep : float
             sampling rate in [mV/pixel]
 
+    Returns
+    -------
+    peaks : list
+        list with detected peaks
 
     """
     minval = np.percentile(
@@ -586,7 +592,14 @@ def getOverlap(a, b):
 
 
 def findBestSlope(x, y, minder=None, fig=None, verbose=1):
-    """ Find good slopes to use in sensing dot """
+    """ Find good slopes to use in sensing dot
+    
+    Args:
+        ...
+    Returns:
+        slopes (...)
+        results (object): additional data
+    """
     lowvalue = np.percentile(y, 1)
     highvalue = np.percentile(y, 99)
     H = highvalue - lowvalue
@@ -619,7 +632,7 @@ def findBestSlope(x, y, minder=None, fig=None, verbose=1):
         slope['halfvalue'] = (slope['y'] + slope['ybottoml']) / 2
         # slope['halfvalue']=(slope['y']-slope['ybottom'])/2
         halfvalue = slope['halfvalue']
-        phalfl = np.round((p + pbottom) / 2)  # FIXME
+        phalfl = int( np.round((p + pbottom) / 2) ) # FIXME
         # print(phalfl)
         slope['phalfl'] = phalfl
         slope['phalf0'] = phalfl
@@ -663,7 +676,7 @@ def findBestSlope(x, y, minder=None, fig=None, verbose=1):
         plt.subplot(2, 1, 2)
         plt.plot(x[:], dy, '.-b')
         plt.ylabel('Derivative')
-        plot2Dline([0, -1, minder], '--r', label='Minimum derivative')
+        qtt.pgeometry.plot2Dline([0, -1, minder], '--r', label='Minimum derivative')
         plt.title('findBestSlopes: derivative')
 
     peakScores(slopes, x, y)
@@ -674,14 +687,11 @@ def findSensingDotPosition(x, y, verbose=1, fig=None, plotLabels=True, plotScore
     """ Find best position for sensing dot
 
     Arguments:
-    x,y : array
-        data
-    verbose: integer
-        output level
-    Returns
-    -------
-    goodpeaks : list
-        list of detected positions
+        x,y (array): data
+    verbose (int): output level
+    
+    Returns:
+        goodpeaks (list): list of detected positions
 
     """
     goodpeaks = coulombPeaks(x, y, verbose=1, fig=None,

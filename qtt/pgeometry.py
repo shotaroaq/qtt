@@ -2,7 +2,7 @@
 """
 
 pgeometry
--------
+---------
 
 A collection of usefull functions.
 
@@ -11,10 +11,6 @@ For additional options also see
 
 :platform: Unix, Windows
 
-.. doctest::
-
-  >>> choose(6,2)
-  15
 
 Additions:
     Copyright 2012-2016   TNO
@@ -45,7 +41,7 @@ import logging
 import pkgutil
 import subprocess
 
-__version__ = '0.5'
+__version__ = '0.51'
 
 #%% Load pyqside or pyqt4
 # We want to do this before loading matplotlib
@@ -228,6 +224,41 @@ except:
 
 
 #%% Utils
+
+def memory():
+    """ return the memory usage in MB """
+    import psutil, os
+    process = psutil.Process(os.getpid())
+    mem =process.memory_info().rss / (1024.*1024.)
+    return mem
+    
+def list_objects(objectype=None, objectclassname='__123', verbose=1):
+    """ List all objects in memory of a specific type or with a specific class name
+    
+    Args:
+        objectype (None or class)
+        objectclassname (str)
+    Returns:
+        ll (list): list of objects found
+        
+    
+    """
+    import gc
+    ll=[]
+    for ii,obj in enumerate(gc.get_objects()):
+        if ii>1000000:
+            break
+        valid = False
+        if hasattr(obj, '__class__'):
+            valid = getattr(obj.__class__, '__name__', 'none').startswith(objectclassname)
+        if objectype is not None and not valid:
+            if isinstance(obj, objectype):
+                valid = True
+        if valid:
+            if verbose:
+                    print('list_objects: object %s'  % (obj, ))
+            ll.append(obj)
+    return ll
 
 from functools import wraps
 
@@ -887,7 +918,7 @@ class camera_t():
         return xim
 
     def reprojectionError(ecam, X, xim):
-        """ Calculate reprojection error for a set of 3D and 2D points
+        r""" Calculate reprojection error for a set of 3D and 2D points
 
         The error calculated is:
 
@@ -1628,11 +1659,10 @@ def auto_canny(image, sigma=0.33):
 def plotPoints(xx, *args, **kwargs):
     """ Plot 2D or 3D points
 
-
-    Arguments:
-        xx - array of points
-        \*args - arguments passed to the plot function of matplotlib
-
+    Args:
+        xx (array): array of points to plot
+        args: arguments passed to the plot function of matplotlib
+        kwargs:  arguments passed to the plot function of matplotlib
     Example:
     >>> plotPoints(np.random.rand(2,10), '.-b')
 
@@ -1967,8 +1997,7 @@ def blur_measure(im, verbose=0):
 def gaborFilter(ksize, sigma, theta, Lambda=1, psi=0, gamma=1, cut=None):
     """ Create a Gabor filter of specified size
 
-
-    Input
+    Parameters
     -----
     ksize : integer
         kernel size in pixels
@@ -1977,7 +2006,7 @@ def gaborFilter(ksize, sigma, theta, Lambda=1, psi=0, gamma=1, cut=None):
     cut: boolean
         if True cut off the angular component after specified distance (in radians)
 
-    Output
+    Returns
     ------
 
     g : array
@@ -2071,7 +2100,7 @@ def toc(t0=None):
     """ Stop timer
 
     Returns:
-        time elapsed (in seconds) since the start of the timer
+        dt (float): time elapsed (in seconds) since the start of the timer
 
     See also: :func:`tic`
     """
@@ -2119,7 +2148,7 @@ def save(pkl_file, *args):
     ---------
     pkl_file : string
          filename
-    \*args : anything
+    *args : anything
          Python objects to save
     """
 
@@ -2648,7 +2677,8 @@ def ca():
 
 
 @static_var('monitorindex', -1)
-def tilefigs(lst, geometry=[2, 2], ww=None, raisewindows=False, tofront=False, verbose=0):
+def tilefigs(lst, geometry=[2, 2], ww=None, raisewindows=False, tofront=False,
+             verbose=0, monitorindex=None):
     """ Tile figure windows on a specified area
 
     Arguments
@@ -2657,12 +2687,17 @@ def tilefigs(lst, geometry=[2, 2], ww=None, raisewindows=False, tofront=False, v
                 list of figure handles or integers
         geometry : 2x1 array
                 layout of windows
+        monitorindex (None or int): index of monitor to use for output
+        ww (None or list): monitor sizes
 
     """
     mngr = plt.get_current_fig_manager()
     be = matplotlib.get_backend()
+    if monitorindex is None:
+        monitorindex = tilefigs.monitorindex
+        
     if ww is None:
-        ww = monitorSizes()[tilefigs.monitorindex]
+        ww = monitorSizes()[monitorindex]
 
     w = ww[2] / geometry[0]
     h = ww[3] / geometry[1]

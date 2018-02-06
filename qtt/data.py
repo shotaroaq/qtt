@@ -18,7 +18,7 @@ except:
     pass
 
 import numpy.linalg
-from qtt import pgeometry 
+from qtt import pgeometry
 
 import qtt.tools
 import qtt.algorithms.generic
@@ -50,7 +50,8 @@ def dataset2image(dataset, arrayname=None, unitsperpixel=None, mode='pixel'):
     """
     if arrayname is None:
         arrayname = dataset.default_parameter_name()
-    tr = image_transform(dataset, arrayname=arrayname, mode=mode, unitsperpixel=unitsperpixel)
+    tr = image_transform(dataset, arrayname=arrayname,
+                         mode=mode, unitsperpixel=unitsperpixel)
     im = None
     if arrayname is not None:
         imraw = dataset.arrays[arrayname].ndarray
@@ -370,6 +371,9 @@ class image_transform:
         self.vsweep = vsweep
 
         self._istep = dataset_get_istep(dataset)
+        if self.verbose:
+            print('image_transform: istep %.2f, unitsperpixel %s' % ( self._istep, unitsperpixel ))
+
         nx = len(vsweep)
         ny = len(vstep)
         self.flipX = False
@@ -392,7 +396,7 @@ class image_transform:
                 self.flipY = True
                 self.H = Hy.dot(self.H)
 
-        self._imraw = dataset.arrays[arrayname].ndarray
+        self._imraw = np.array(dataset.arrays[arrayname] )
 
         if isinstance(unitsperpixel, (float, int)):
             unitsperpixel = [unitsperpixel, unitsperpixel]
@@ -407,6 +411,9 @@ class image_transform:
             self._im = ims
             self.H = Hs @ self.H
 
+        if verbose:
+            print('image_transform: tr._imraw.shape %s' % (tr._imraw.shape, ))
+            print('image_transform: tr._im.shape %s' % (tr._im.shape, ))
         self._im = self._transform(self._imraw)
         self.Hi = numpy.linalg.inv(self.H)
 
@@ -577,8 +584,6 @@ except:
 #    warnings.warn('could not load deepdish...')
 
 
-
-
 def pickleload(pkl_file):
     """ Load objects from file with pickle """
     try:
@@ -593,6 +598,7 @@ def pickleload(pkl_file):
         else:
             data2 = None
     return data2
+
 
 def _data_extension():
     return 'pickle'
@@ -669,6 +675,11 @@ def getTimeString(t=None):
     dstr = t.strftime('%H-%M-%S')
     return dstr
 
+def dateString(t=None):
+    """ Return date string with timezone """
+    if t is None:
+        t = datetime.datetime.now()
+    return t.strftime('%Y-%m-%d %H:%M:%S.%f %z %Z' ).strip()
 
 def getDateString(t=None, full=False):
     """ Return date string
@@ -731,7 +742,8 @@ def makeDataSet1Dplain(xname, x, yname, y, xunit=None, yunit=None, location=None
     '''
     xx = np.array(x)
     yy = np.array(y)
-    x = DataArray(name=xname, array_id=xname, preset_data=xx, unit=xunit, is_setpoint=True)
+    x = DataArray(name=xname, array_id=xname, preset_data=xx,
+                  unit=xunit, is_setpoint=True)
     dd = new_data(arrays=(), location=location, loc_record=loc_record)
     dd.add_array(x)
     if isinstance(yname, str):
@@ -807,19 +819,22 @@ def makeDataSet2Dplain(xname, x, yname, y, zname='measured', z=None, xunit=None,
     yy0 = np.array(y)
     yy = np.tile(yy0, [xx.size, 1])
     zz = np.NaN * np.ones((xx.size, yy0.size))
-    xa = DataArray(name=xname, array_id=xname, preset_data=xx, unit=xunit, is_setpoint=True)
-    ya = DataArray(name=yname, array_id=yname, preset_data=yy, unit=yunit, set_arrays=(xa,), is_setpoint=True)
+    xa = DataArray(name=xname, array_id=xname, preset_data=xx,
+                   unit=xunit, is_setpoint=True)
+    ya = DataArray(name=yname, array_id=yname, preset_data=yy,
+                   unit=yunit, set_arrays=(xa,), is_setpoint=True)
     dd = new_data(arrays=(), location=location, loc_record=loc_record)
     if isinstance(zname, str):
         zname = [zname]
     for ii, name in enumerate(zname):
-        za = DataArray(name=name, array_id=name, label=name, preset_data=np.copy(zz), unit=zunit, set_arrays=(xa, ya))
+        za = DataArray(name=name, array_id=name, label=name,
+                       preset_data=np.copy(zz), unit=zunit, set_arrays=(xa, ya))
         dd.add_array(za)
         if z is not None:
             getattr(dd, name).ndarray = np.array(z[ii])
     dd.add_array(xa)
     dd.add_array(ya)
-    
+
     dd.last_write = -1
 
     return dd

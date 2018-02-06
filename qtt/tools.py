@@ -1,16 +1,18 @@
 import sys
 import os
 import numpy as np
+import pprint
 import matplotlib
 import logging
 import qcodes
 import warnings
 import functools
 import pickle
+import inspect
 import tempfile
 from itertools import chain
 import scipy.ndimage as ndimage
-from qcodes import DataArray
+
 
 # explicit import
 from qcodes.plots.qcmatplotlib import MatPlot
@@ -26,6 +28,7 @@ from qtt.pgeometry import mpl2clipboard
 
 try:
     import qtpy.QtGui as QtGui
+    import qtpy.QtCore as QtCore
     import qtpy.QtWidgets as QtWidgets
 except:
     pass
@@ -97,23 +100,30 @@ def dumpstring(txt):
 
 
 def deprecated(func):
-    '''This is a decorator which can be used to mark functions
+    """ This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
-    when the function is used.'''
+    when the function is used. """
 
     @functools.wraps(func)
     def new_func(*args, **kwargs):
+        try:
+            filename = inspect.getfile(func)
+        except:
+            filename = '?'
+        try:
+            lineno = inspect.getlineno(func)
+        except:
+            lineno = -1
         warnings.warn_explicit(
             "Call to deprecated function {}.".format(func.__name__),
             category=DeprecationWarning,
-            filename='?',  # func.func_code.co_filename,
-            lineno=-1,  # func.func_code.co_firstlineno + 1
+            filename=filename,
+            lineno=lineno, 
         )
         return func(*args, **kwargs)
     return new_func
 
 #%%
-
 
 def update_dictionary(alldata, **kwargs):
     """ Update elements of a dictionary
@@ -161,6 +171,7 @@ def checkPickle(obj, verbose=0):
             print(ex)
         return False
     return True
+
 
 from functools import wraps
 
@@ -277,12 +288,13 @@ def diffImage(im, dy, size=None):
 def diffImageSmooth(im, dy='x', sigma=2):
     """ Simple differentiation of an image
 
-    Input
-    -----
+    Parameters
+    ----------
     im : array
         input image
     dy : string or integer
-        direction of differentiation. can be 'x' (0) or 'y' (1) or 'xy' (2)
+        direction of differentiation. can be 'x' (0) or 'y' (1) or 'xy' (2) or 'g' (3)
+        or 
     sigma : float
         parameter for gaussian filter kernel
 
@@ -302,7 +314,7 @@ def diffImageSmooth(im, dy='x', sigma=2):
     elif dy == -1:
         imx = -ndimage.gaussian_filter1d(im, axis=0,
                                          sigma=sigma, order=1, mode='nearest')
-    elif dy == 2 or dy == 3 or dy == 'xy' or dy == 'xmy' or dy == 'xmy2':
+    elif dy == 2 or dy == 3 or dy == 'xy' or dy == 'xmy' or dy == 'xmy2' or dy=='g' or dy=='x2my2' or dy=='x2y2' :
         imx0 = ndimage.gaussian_filter1d(
             im, axis=1, sigma=sigma, order=1, mode='nearest')
         imx1 = ndimage.gaussian_filter1d(
@@ -314,11 +326,15 @@ def diffImageSmooth(im, dy='x', sigma=2):
         if dy == 3 or dy == 'g':
             imx = np.sqrt(imx0**2 + imx1**2)
         if dy == 'xmy2':
+            warnings.warn('please do not use this option')
             imx = np.sqrt(imx0**2 + imx1**2)
+        if dy == 'x2y2':
+            imx = imx0**2 + imx1**2
+        if dy == 'x2my2':
+            imx = imx0**2 - imx1**2
     else:
         raise Exception('differentiation method %s not supported' % dy)
     return imx
-
 
 def test_array(location=None, name=None):
     # DataSet with one 2D array with 4 x 6 points
@@ -349,6 +365,7 @@ def test_image_operations(verbose=0):
 
 #%%
 
+
 import dateutil
 
 
@@ -360,7 +377,7 @@ def scanTime(dd):
 
 
 def plot_parameter(data, default_parameter='amplitude'):
-    ''' Return parameter to be plotted '''
+    """ Return parameter to be plotted """
     if 'main_parameter' in data.metadata.keys():
         return data.metadata['main_parameter']
     if default_parameter in data.arrays.keys():
@@ -390,6 +407,13 @@ def plot1D(dataset, fig=1):
 
 
 def showImage(im, extent=None, fig=None):
+    """ Show image in figure window
+    
+    Args:
+        im (array)
+        extend (list): matplotlib style image extent
+        fig (None or int): figure window to show image        
+    """
     if fig is not None:
         plt.figure(fig)
         plt.clf()
@@ -403,14 +427,14 @@ def showImage(im, extent=None, fig=None):
 def resetgates(gates, activegates, basevalues=None, verbose=2):
     """ Reset a set of gates to default values
 
-    Arguments
-    ---------
-        activegates : list or dict
-            list of gates to reset
-        basevalues: dict
-            new values for the gates
-        verbose : integer
-            output level
+    Parameters
+    ----------
+    activegates : list or dict
+        list of gates to reset
+    basevalues: dict
+        new values for the gates
+    verbose : integer
+        output level
 
     """
     if verbose:
@@ -419,8 +443,6 @@ def resetgates(gates, activegates, basevalues=None, verbose=2):
         if basevalues == None:
             val = 0
         else:
-            # print(g)
-            # print(basevalues)
             if g in basevalues.keys():
                 val = basevalues[g]
             else:
@@ -609,6 +631,7 @@ def pythonVersion():
 
 #%%
 
+
 try:
     import graphviz
 except:
@@ -628,15 +651,15 @@ def showDotGraph(dot, fig=10):
     plt.tight_layout()
     plt.axis('off')
 
+
 #%%
 try:
     import win32com
     import win32com.client
-    import pprint
-    
-    def addPPTslide(title=None, fig=None, txt = None, notes=None, figsize=None,
-                    subtitle = None, maintext=None, show=False, verbose=1,
-                    activate_slide=True, ppLayout = None):
+
+    def addPPTslide(title=None, fig=None, txt=None, notes=None, figsize=None,
+                    subtitle=None, maintext=None, show=False, verbose=1,
+                    activate_slide=True, ppLayout=None, extranotes=None):
         ''' Add slide to current active Powerpoint presentation
 
         Arguments:
@@ -673,20 +696,24 @@ try:
         try:
             ppt = Application.ActivePresentation
         except Exception:
-            print('could not open active Powerpoint presentation, opening blank presentation')
+            print(
+                'could not open active Powerpoint presentation, opening blank presentation')
             try:
-                ppt=Application.Presentations.Add()
+                ppt = Application.Presentations.Add()
             except Exception as ex:
-                warnings.warn('could not make connection to Powerpoint presentation')
+                warnings.warn(
+                    'could not make connection to Powerpoint presentation')
                 return None, None
 
         if show:
             Application.Visible = True  # shows what's happening, not required, but helpful for now
 
-        if verbose>=2:
+        if verbose >= 2:
             print('addPPTslide: presentation name: %s' % ppt.Name)
 
-        ppLayoutTitleOnly = 11; ppLayoutTitle = 1; ppLayoutText=2
+        ppLayoutTitleOnly = 11
+        ppLayoutTitle = 1
+        ppLayoutText = 2
 
         if txt is not None:
             if subtitle is None:
@@ -694,19 +721,20 @@ try:
                 subtitle = txt
             else:
                 raise Exception('please do not use the txt field any more')
-                
+
             txt = None
-            
+
         if fig is None:
             # no figure, text box over entire page
             if ppLayout is None:
-                ppLayout =    ppLayoutText
+                ppLayout = ppLayoutText
         else:
-            # we have a figure, assume textbox is for dataset name only            
+            # we have a figure, assume textbox is for dataset name only
             ppLayout = ppLayoutTitleOnly
 
         if verbose:
-            print('addPPTslide: presentation name: %s, adding slide %d' % (ppt.Name, ppt.Slides.count+1))
+            print('addPPTslide: presentation name: %s, adding slide %d' %
+                  (ppt.Name, ppt.Slides.count + 1))
 
         slide = ppt.Slides.Add(ppt.Slides.Count + 1, ppLayout)
         if fig is None:
@@ -718,11 +746,13 @@ try:
             mainbox = None
             if maintext is not None:
                 warnings.warn('maintext not implemented when figure is set')
-                
+
         if title is not None:
             slide.shapes.title.textframe.textrange.text = title
         else:
             slide.shapes.title.textframe.textrange.text = 'QCoDeS measurement'
+
+        import qtt.measurements.ttrace
 
         if fig is not None:
             fname = tempfile.mktemp(prefix='qcodesimageitem', suffix='.png')
@@ -731,6 +761,35 @@ try:
             elif isinstance(fig, int):
                 fig = plt.figure(fig)
                 fig.savefig(fname)
+            elif isinstance(fig, qtt.measurements.ttrace.MultiTracePlot) or \
+                           fig.__class__.__name__=='MultiTracePlot':
+                    figtemp = fig.plotwin.grab()
+                    figtemp.save(fname)
+            elif isinstance(fig, qtt.measurements.videomode.VideoMode) or fig.__class__.__name__=='VideoMode':
+                if isinstance(fig.lp, list):
+                    # do NOT change this into a list comprehension
+                    ff=[]
+                    for jj in range(len(fig.lp)):    
+                        ff.append(fig.lp[jj].plotwin.grab() )
+
+                    sz=ff[0].size()
+                    sz = QtCore.QSize(sz.width()*len(ff), sz.height())
+                    figtemp=QtGui.QPixmap(sz)
+                    p=QtGui.QPainter(figtemp)
+                    offset=0
+                    for ii in range(len(ff)):
+                        p.drawPixmap(offset, 0, ff[ii])
+                        offset+=ff[ii].size().width()                    
+                    figtemp.save(fname)
+                    p.end()                    
+                else:
+                    # new Qt style
+                    figtemp = fig.lp.plotwin.grab()
+                    figtemp.save(fname)
+            elif isinstance(fig, QtGui.QWidget):
+                # generic method
+                figtemp = fig.plotwin.grab()
+                figtemp.save(fname)                    
             elif isinstance(fig, QtWidgets.QWidget):
                 try:
                     figtemp = QtGui.QPixmap.grabWidget(fig)
@@ -758,8 +817,6 @@ try:
             slide.Shapes.AddPicture(FileName=fname, LinkToFile=False,
                                     SaveWithDocument=True, Left=left, Top=120, Width=width, Height=height)
 
-        
-
         if subtitle is not None:
             # add subtitle
             subtitlebox = slide.Shapes.AddTextbox(
@@ -768,18 +825,23 @@ try:
             subtitlebox.TextFrame.TextRange.Text = subtitle
 
         if notes is None:
-            warnings.warn('please set notes for the powerpoint slide. e.g. use the station or reshape_metadata')
-            
+            warnings.warn(
+                'please set notes for the powerpoint slide. e.g. use the station or reshape_metadata')
+
         if isinstance(notes, qcodes.Station):
             station = notes
             gates = getattr(station, 'gates', None)
-            notes = reshape_metadata(station, printformat='s')
+            notes = reshape_metadata(station, printformat='s', add_scanjob=True)
+            if extranotes is not None:
+                notes = '\n' + extranotes +'\n'+ notes
             if gates is not None:
                 notes = 'gates: ' + str(gates.allvalues()) + '\n\n' + notes
+        if isinstance(notes, qcodes.DataSet):
+            notes = reshape_metadata(notes, printformat='s')
 
         if notes is not None:
             if notes == '':
-                notes=' ' 
+                notes = ' '
             slide.notespage.shapes.placeholders[
                 2].textframe.textrange.insertafter(notes)
 
@@ -795,41 +857,51 @@ try:
             Application.ActiveWindow.View.GotoSlide(idx)
         return ppt, slide
 
-    def addPPT_dataset(dataset, title=None, notes=None, show=False, verbose=1,
-                       paramname='measured', printformat='fancy', **kwargs):
+    def addPPT_dataset(dataset, title=None, notes=None,
+                       show=False, verbose=1, paramname='measured',
+                       printformat='fancy', customfig=None, extranotes=None, **kwargs):
         ''' Add slide based on dataset to current active Powerpoint presentation
 
         Arguments:
             dataset (DataSet): data and metadata from DataSet added to slide
+            customfig (QtPlot): custom QtPlot object to be added to
+                                slide (for dataviewer)
             notes (string): notes added to slide
             show (boolean): shows the powerpoint application
             verbose (int): print additional information
             paramname (None or str): passed to dataset.default_parameter_array
-            printformat (string): 'fancy' for nice formatting or 'dict' for easy copy to python
+            printformat (string): 'fancy' for nice formatting or 'dict'
+                                  for easy copy to python
         Returns:
             ppt: PowerPoint presentation
             slide: PowerPoint slide
 
         Example
         -------
-        >>> notes = 'some additional information' 
+        >>> notes = 'some additional information'
         >>> addPPT_dataset(dataset,notes)
         '''
         if len(dataset.arrays) < 2:
-            raise Exception('The dataset contains less than two data arrays')
+            raise IndexError('The dataset contains less than two data arrays')
 
-        temp_fig = QtPlot(dataset.default_parameter_array(
-            paramname=paramname), show_window=False)
+        if customfig is None:
+            temp_fig = QtPlot(dataset.default_parameter_array(
+                              paramname=paramname), show_window=False)
+        else:
+            temp_fig = customfig
 
         text = 'Dataset location: %s' % dataset.location
-
         if notes is None:
-            notes = 'Dataset %s metadata:\n\n%s' % (dataset.location, reshape_metadata(
-                dataset, printformat=printformat))
-
+            try:
+                metastring = reshape_metadata(dataset,
+                                              printformat=printformat)
+            except Exception as ex:
+                metastring = 'Could not read metadata: %s' % str(ex)
+            notes = 'Dataset %s metadata:\n\n%s' % (dataset.location,
+                                                    metastring)
             scanjob = dataset.metadata.get('scanjob', None)
             if scanjob is not None:
-                s=pprint.pformat(scanjob)
+                s = pprint.pformat(scanjob)
                 notes = 'scanjob: ' + str(s) + '\n\n' + notes
 
             gatevalues = dataset.metadata.get('allgatevalues', None)
@@ -837,12 +909,13 @@ try:
                 notes = 'gates: ' + str(gatevalues) + '\n\n' + notes
 
         ppt, slide = addPPTslide(title=title, fig=temp_fig, subtitle=text,
-                                 notes=notes, show=show, verbose=verbose, **kwargs)
-
+                                 notes=notes, show=show, verbose=verbose,
+                                 extranotes=extranotes,
+                                 **kwargs)
         return ppt, slide
 
 except:
-    def addPPTslide(title=None, fig=None, subtitle = None, maintext=None,
+    def addPPTslide(title=None, fig=None, subtitle=None, maintext=None,
                     notes=None, show=False, verbose=1, ppLayout=1):
         ''' Dummy implementation '''
         pass
@@ -855,11 +928,12 @@ except:
 from collections import OrderedDict
 
 
-def reshape_metadata(dataset, printformat='dict', verbose=0):
+def reshape_metadata(dataset, printformat='dict', add_scanjob = True, verbose=0):
     '''Reshape the metadata of a DataSet
 
     Arguments:
-        dataset (DataSet or qcodes.Station): a dataset of which the metadata will be reshaped
+        dataset (DataSet or qcodes.Station): a dataset of which the metadata 
+                                             will be reshaped.
         printformat (str): can be 'dict' or 'txt','fancy' (text format)
     Returns:
         metadata (string): the reshaped metadata
@@ -868,7 +942,6 @@ def reshape_metadata(dataset, printformat='dict', verbose=0):
     if isinstance(dataset, qcodes.Station):
         station = dataset
         all_md = station.snapshot(update=False)['instruments']
-
         header = None
     else:
         if not 'station' in dataset.metadata:
@@ -882,8 +955,15 @@ def reshape_metadata(dataset, printformat='dict', verbose=0):
 
         header = 'dataset: %s' % dataset.location
 
-    metadata = OrderedDict()
+        if hasattr(dataset.io, 'base_location'):
+            header += ' (base %s)' % dataset.io.base_location
 
+    scanjob = dataset.metadata.get('scanjob', None)
+    if scanjob is not None and add_scanjob:
+        s = pprint.pformat(scanjob)
+        header += '\n\nscanjob: ' + str(s) + '\n'
+
+    metadata = OrderedDict()
     # make sure the gates instrument is in front
     all_md_keys = sorted(sorted(all_md), key=lambda x: x ==
                          'gates',  reverse=True)
@@ -894,17 +974,21 @@ def reshape_metadata(dataset, printformat='dict', verbose=0):
                                       x]['parameters']['IDN']['value']})
             metadata[x]['IDN']['unit'] = ''
         for y in sorted(all_md[x]['parameters'].keys()):
-            if y != 'IDN':
-                metadata[x][y] = OrderedDict()
-                param_md = all_md[x]['parameters'][y]
-                metadata[x][y]['name'] = y
-                if isinstance(param_md['value'], (float, np.float64)):
-                    metadata[x][y]['value'] = float(
-                        format(param_md['value'], '.3f'))
-                else:
-                    metadata[x][y]['value'] = str(param_md['value'])
-                metadata[x][y]['unit'] = param_md['unit']
-                metadata[x][y]['label'] = param_md['label']
+            try:
+                if y != 'IDN':
+                    metadata[x][y] = OrderedDict()
+                    param_md = all_md[x]['parameters'][y]
+                    metadata[x][y]['name'] = y
+                    if isinstance(param_md['value'], (float, np.float64)):
+                        metadata[x][y]['value'] = float(
+                            format(param_md['value'], '.3f'))
+                    else:
+                        metadata[x][y]['value'] = str(param_md['value'])
+                    metadata[x][y]['unit'] = param_md.get('unit', None)
+                    metadata[x][y]['label'] = param_md.get('label', None)
+            except KeyError as ex:
+                if verbose:
+                    print('failed on parameter %s / %s: %s' % (x, y, str(ex)))
 
     if printformat == 'dict':
         ss = str(metadata).replace('(', '').replace(
@@ -939,6 +1023,9 @@ def test_reshape_metadata():
         pass
     if dataset is not None:
         _ = reshape_metadata(dataset, printformat='dict')
+    st=qcodes.Station(qcodes.Instrument('_dummy123' ))
+    _ = reshape_metadata(st, printformat='dict')
+
 
 #%%
 try:
@@ -1052,6 +1139,8 @@ def smoothFourierFilter(fs=100, thr=6, omega=2, fig=None):
         plt.imshow(F, interpolation='nearest')
 
     return F  # , rr
+
+
 F = smoothFourierFilter([36, 36])
 
 
@@ -1095,6 +1184,7 @@ def fourierHighPass(imx, nc=40, omega=4, fs=1024, fig=None):
     imf = imf[0:imx.shape[0], 0:imx.shape[1]]
 
     return imf
+
 
 #%%
 import copy
