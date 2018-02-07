@@ -398,6 +398,7 @@ class virtual_awg(Instrument):
         for g in gate_voltages:
             gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]]
         waittimes = pulsedata['waittimes']
+        filtercutoff = pulsedata.get('filtercutoff',None)
         
         pulsereps = int(period // sum(waittimes))
         waittimes = np.tile(waittimes, pulsereps)
@@ -411,7 +412,7 @@ class virtual_awg(Instrument):
         for g in gate_voltages:
             self.check_amplitude(g, sweeprange + (mvrange[0]-mvrange[1]))
             gate_voltages[g] = np.tile(gate_voltages[g], pulsereps)
-            wave_raw = self.make_pulses(gate_voltages[g], waittimes, mvrange)
+            wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, mvrange=mvrange)
             wave_raw = np.pad(wave_raw, (0,len(wave_sweep) - len(wave_raw)), 'edge')
             if sweepgate == g:
                 wave_raw += wave_sweep
@@ -637,7 +638,7 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def pulse_gates(self, gate_voltages, waittimes, delete=True):
+    def pulse_gates(self, gate_voltages, waittimes, filtercutoff=None, delete=True):
         ''' Send a pulse sequence with the AWG that can span over any gate space.
         Sends a marker to measurement instrument at the start of the sequence.
         Only works with physical gates.
@@ -658,10 +659,11 @@ class virtual_awg(Instrument):
         for g in gate_voltages:
             gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]]
         allvoltages = np.concatenate([v for v in gate_voltages.values()])
+        
         mvrange = [max(allvoltages), min(allvoltages)]
         waveform = dict()
         for g in gate_voltages:
-            wave_raw = self.make_pulses(gate_voltages[g], waittimes, mvrange)
+            wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, mvrange=mvrange)
             awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
             wave = wave_raw / awg_to_plunger
             waveform[g] = dict()
