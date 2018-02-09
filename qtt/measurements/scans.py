@@ -1414,6 +1414,7 @@ def acquire_segments(station, parameters, average=True, mV_range=2000, save_to_d
         dt = time.time() - t0
         update_dictionary(alldata.metadata, dt=dt, station=station.snapshot())
         update_dictionary(alldata.metadata, scantime=str(datetime.datetime.now()), allgatevalues=gatevals)
+        update_dictionary(alldata.metadata, nsegments=str(nsegments))
         alldata = qtt.tools.stripDataset(alldata)    
         alldata.write(write_metadata=True)
 
