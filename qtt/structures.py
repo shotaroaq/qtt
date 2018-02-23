@@ -12,8 +12,6 @@ import qcodes
 import qtt
 import qtt.measurements.scans
 from qtt.algorithms.coulomb import peakdataOrientation, coulombPeaks, findSensingDotPosition
-
-
 from qtt.tools import freezeclass
 
 #%%
@@ -160,7 +158,12 @@ class sensingdot_t:
         return d
 
     def gates(self):
+        """ Return values on the gates used to the define the SD """
         return self.sdval
+
+    def gate_names(self):
+        """ Return names of the gates used to the define the SD """
+        return self.gg
 
     def show(self):
         gates = self.station.gates
@@ -216,6 +219,7 @@ class sensingdot_t:
         scanjob1 = qtt.measurements.scans.scanjob_t()
         scanjob1['sweepdata'] = dict(
             {'param': gg[1], 'start': startval, 'end': endval, 'step': step, 'wait_time': wait_time})
+        scanjob1['wait_time_startscan'] = .2+3*wait_time
         scanjob1['minstrument'] = keithleyidx
         scanjob1['compensateGates'] = []
         scanjob1['gate_values_corners'] = [[]]
@@ -269,6 +273,7 @@ class sensingdot_t:
         return sd.sdval[1], alldata
 
     def _process_scan(self, alldata, useslopes=True, fig=None):
+        """ Determine peaks in 1D scan """
         istep = float(np.abs(alldata.metadata['scanjob']['sweepdata']['step']))
         x, y = qtt.data.dataset1Ddata(alldata)
         x, y = peakdataOrientation(x, y)
@@ -281,7 +286,9 @@ class sensingdot_t:
             goodpeaks = coulombPeaks(
                 x, y, verbose=1, fig=fig, plothalf=True, istep=istep)
         if fig is not None:
-            plt.title('autoTune: sd %d' % self.index, fontsize=14)
+            plt.xlabel('%s' % (self.tunegate(), ))
+            plt.ylabel('%s' % (self.minstrument, ))
+            plt.title('autoTune: %s' % (self.__repr__(), ), fontsize=14)
 
         self.goodpeaks = goodpeaks
         self.data['tunex'] = x
@@ -378,9 +385,10 @@ class sensingdot_t:
 
         Args:
             fig (int or None): window for plotting results
-            ...
+            Naverage (int): number of averages
+            
         Returns:
-            value (float): value of plunger
+            plungervalue (float): value of plunger
             alldata (dataset): measured data
         """
 

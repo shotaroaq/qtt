@@ -16,6 +16,7 @@ from qcodes import Instrument
 from qcodes.plots.pyqtgraph import QtPlot
 from qcodes import DataArray
 import qtt
+import qtt.tools
 
 logger = logging.getLogger(__name__)
 #%%
@@ -40,7 +41,7 @@ class virtual_awg(Instrument):
         self.hardware = hardware
         self.verbose = verbose
         self.delay_FPGA = 2.0e-6  # should depend on filterboxes
-        self.corr = .02e-6
+        self.corr = .02e-6 # specific for FPGA
         self.maxdatapts = 16e6  # This used to be set to the fpga maximum, but that maximum should not be handled here
 
         self.awg_seq = None
@@ -296,7 +297,7 @@ class virtual_awg(Instrument):
         ''' Send a sawtooth signal with the AWG to a gate to sweep. Also
         send a marker to the measurement instrument.
 
-        Arguments:
+        Args:
             gate (string): the name of the gate to sweep
             sweeprange (float): the range of voltages to sweep over
             period (float): the period of the triangular signal
@@ -306,8 +307,7 @@ class virtual_awg(Instrument):
             sweep_info (dict): the keys are tuples of the awgs and channels to activate
 
         Example:
-        -------
-        >>> waveform, sweep_info = sweep_gate('P1',sweeprange=60,period=1e-3)
+            >>> waveform, sweep_info = sweep_gate('P1',sweeprange=60,period=1e-3)
         '''
 
         self.check_frequency_waveform(period, width)
@@ -378,7 +378,7 @@ class virtual_awg(Instrument):
         a gate, with a pulse sequence. A marker is sent to the measurement instrument 
         at the start of the waveform.
 
-        Arguments:
+        Args:
             sweepdata (dict): inputs for the sawtooth (gate, sweeprange, period, width). 
             See sweep_gate for more info.
             pulsedata (dict): inputs for the pulse sequence (gate_voltages, waittimes).
@@ -452,7 +452,6 @@ class virtual_awg(Instrument):
             data_processed (array): The data after dropping part of it.
 
         Example:
-        -------
             >> data_processed = sweep_process(data, waveform, 25)
         """
         width = waveform['width']

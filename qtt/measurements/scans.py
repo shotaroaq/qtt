@@ -374,7 +374,7 @@ def scan1D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
 
 
 #%%
-def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, verbose=1):
+def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True, verbose=1):
     """Fast 1D scan. 
 
     Args:
@@ -429,11 +429,11 @@ def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, verbose=1):
             sweeprange = (sweepdata['end'] - sweepdata['start'])
             sweepgate_value = (sweepdata['start'] + sweepdata['end']) / 2
             gates.set(sweepdata['param'], float(sweepgate_value))
-        waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period)
+        waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period, delete=delete)
     else:
         sweeprange = sweepdata['range']
         waveform, sweep_info = station.awg.sweep_gate_virt(
-            fast_sweep_gates, sweeprange, period)
+            fast_sweep_gates, sweeprange, period, delete=delete)
 
     qtt.time.sleep(wait_time_startscan)
 
@@ -1205,13 +1205,14 @@ def process_digitizer_trace(data, width, period, samplerate, resolution=None, pa
     return processed_data, (r1, r2)
 
 
-def select_digitizer_memsize(digitizer, period, trigger_delay=None, verbose=1):
+def select_digitizer_memsize(digitizer, period, trigger_delay=None, nsegments=1, verbose=1):
     """ Select suitable memory size for a given period
 
     Args:
         digitizer (object)
         period (float): period of signal to measure
         trigger_delay (float): delay in seconds between ingoing signal and returning signal
+        nsegments (int): number of segments of period length to fit in memory
     Returns:
         memsize (int)
     """
@@ -1219,17 +1220,19 @@ def select_digitizer_memsize(digitizer, period, trigger_delay=None, verbose=1):
     if drate == 0:
         raise Exception('digitizer samplerate is zero, please reset digitizer')
     npoints = int(period * drate)
-    memsize = int(np.ceil(npoints / 16) * 16)
-
+    segsize = int(np.ceil(npoints / 16) * 16)
+    memsize = segsize * nsegments
+    if memsize > digitizer.memory():
+        raise(Exception('Trying to acquire too many points. Reduce sampling rate, period or number segments'))
     digitizer.data_memory_size.set(memsize)
     if trigger_delay is None:
-        spare = np.ceil((memsize - npoints) / 16) * 16
+        spare = np.ceil((segsize - npoints) / 16) * 16
         pre_trigger = min(spare / 2, 512)
     else:
         pre_trigger = trigger_delay * drate
-    post_trigger = int(np.ceil((memsize - pre_trigger) // 16) * 16)
+    post_trigger = int(np.ceil((segsize - pre_trigger) // 16) * 16)
     digitizer.posttrigger_memory_size(post_trigger)
-    digitizer.pretrigger_memory_size(memsize - post_trigger)
+    digitizer.pretrigger_memory_size(segsize - post_trigger)
     if verbose:
         print('%s: sample rate %.3f Mhz, period %f [ms]' % (
             digitizer.name, drate / 1e6, period * 1e3))
@@ -1420,31 +1423,25 @@ def acquire_segments(station, parameters, average=True, mV_range=2000, save_to_d
         ism4i = isinstance(
             minstrhandle, qcodes.instrument_drivers.Spectrum.M4i.M4i)
         if ism4i:
-            memsize = select_digitizer_memsize(minstrhandle, period)
+            memsize = select_digitizer_memsize(minstrhandle, period, nsegments=nsegments)
             post_trigger = minstrhandle.posttrigger_memory_size()
-
-        for i in range(nsegments):
-            if ism4i:
-                dataraw = minstrhandle.single_trigger_acquisition(
-                    mV_range, memsize, post_trigger)
-                if isinstance(dataraw, tuple):
-                    dataraw = dataraw[0]
-                data = np.transpose(np.reshape(dataraw, [-1, len(read_ch)]))
-            else:
-                data = measuresegment(
-                    waveform, 1, minstrhandle, read_ch, mV_range)
-            if i == 0:
-                segment_num = np.arange(nsegments)
-                segment_time = np.linspace(0, period, len(data[0]))
-                alldata = makeDataSet2Dplain('segment_number', segment_num, 'time', segment_time,
-                                             zname=measure_names, xunit='s', location=location, loc_record={'label': 'save_segments'})
-            for idm, mname in enumerate(measure_names):
-                alldata.arrays[mname].ndarray[i] = data[idm]
+            minstrhandle.initialize_channels(read_ch, mV_range=mV_range, memsize=memsize)
+            dataraw = minstrhandle.multiple_trigger_acquisition(
+                mV_range, memsize, memsize//nsegments, post_trigger)
+            if isinstance(dataraw, tuple):
+                dataraw = dataraw[0]
+            data = np.reshape(np.transpose(np.reshape(dataraw, (-1, len(read_ch)))), (len(read_ch), nsegments, -1)) 
+            segment_num = np.arange(nsegments)
+            segment_time = np.linspace(0, period, data.shape[2])
+            alldata = makeDataSet2Dplain('segment_number', segment_num, 'time', segment_time,
+                                             zname=measure_names, z=data, xunit='s', location=location, loc_record={'label': 'save_segments'})
+        else:
+            raise(Exception('Non-averaged acquisitions not supported for this measurement instrument'))
 
     dt = time.time() - t0
     update_dictionary(alldata.metadata, dt=dt, station=station.snapshot())
     update_dictionary(alldata.metadata, scantime=str(
-        datetime.datetime.now()), allgatevalues=gatevals)
+        datetime.datetime.now()), allgatevalues=gatevals, nsegments=str(nsegments))
 
     if save_to_disk:
         alldata = qtt.tools.stripDataset(alldata)
@@ -1639,20 +1636,31 @@ def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='
     return alldata
 
 
-def create_vectorscan(virtual_parameter, g_range=1, sweeporstepdata=None, start=0, step=None):
+def create_vectorscan(virtual_parameter, g_range=1, sweeporstepdata=None, remove_slow_gates=False, station=None, start=0, step=None):
     """Converts the sweepdata or stepdata of a scanjob in those needed for virtual vector scans
-    Inputs:
-        virtual_parameter: parameter of the virtual gate which is varied
+    
+    Args:
+        virtual_parameter (obj): parameter of the virtual gate which is varied
         g_range (float): scan range
+        remove_slow_gates: Removes slow gates from the linear combination of gates. Useful if virtual gates include compensation ofn slow gates, but a fast measurement should be run.
         start (float): start if the scanjob data 
         step (None or float): if not None, then add to the scanning field
-    Outputs:
-        sweeporstepdata (dict): sweepdata or stepdata needed in the scanjob for virtual vector scans"""
+    Returns:
+        sweeporstepdata (dict): sweepdata or stepdata needed in the scanjob for virtual vector scans
+    """
     if sweeporstepdata is None:
         sweeporstepdata = {}
     if hasattr(virtual_parameter, 'comb_map'):
         pp = dict([(p.name, r)
                    for p, r in virtual_parameter.comb_map if round(r, 5) != 0])
+        if remove_slow_gates:
+            try:
+                for gate in list(pp.keys()):
+                    if not station.awg.awg_gate(gate):
+                        pp.pop(gate, None)
+                        
+            except Exception as ex:
+                warnings.warn('error when removing slow gate from scan data')
     else:
         pp = {virtual_parameter.name: 1}
     sweeporstepdata = {'start': start, 'range': g_range,
@@ -2175,34 +2183,6 @@ def enforce_boundaries(scanjob, sample_data, eps=1e-2):
         scanjob (scanjob_t or dict)
         sample_data (sample_data_t)
     """
-    if isinstance(scanjob, scanjob_t) or ('minstrument' in scanjob):
-        for field in ['stepdata', 'sweepdata']:
-
-            if field in scanjob:
-                bstep = sample_data.gate_boundaries(scanjob[field]['param'])
-                scanjob[field]['end'] = max(
-                    scanjob[field]['end'], bstep[0] + eps)
-                scanjob[field]['start'] = max(
-                    scanjob[field]['start'], bstep[0] + eps)
-                scanjob[field]['end'] = min(
-                    scanjob[field]['end'], bstep[1] - eps)
-                scanjob[field]['start'] = min(
-                    scanjob[field]['start'], bstep[1] - eps)
-    else:
-        for param in scanjob:
-            bstep = sample_data.gate_boundaries(param)
-            scanjob[param] = max(scanjob[param], bstep[0] + eps)
-            scanjob[param] = min(scanjob[param], bstep[1] - eps)
-
-
-def enforce_boundaries(scanjob, sample_data, eps=1e-2):
-    """ Make sure a scanjob does not go outside sample boundaries
-
-    Args:
-        scanjob (scanjob_t or dict)
-        sample_data (sample_data_t)
-    """
-
     if isinstance(scanjob, scanjob_t) or ('minstrument' in scanjob):
         for field in ['stepdata', 'sweepdata']:
 
