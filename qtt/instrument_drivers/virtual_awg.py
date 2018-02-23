@@ -653,8 +653,6 @@ class virtual_awg(Instrument):
             sweep_info (dict): the keys are tuples of the awgs and channels to activate
         '''
 
-# TO DO: Check sample rate of AWG, modify the sawtooth check function to a generic one?
-
         period = sum(waittimes)
         for g in gate_voltages:
             gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]]

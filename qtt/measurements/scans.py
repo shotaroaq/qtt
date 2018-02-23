@@ -1510,8 +1510,8 @@ def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='
         scanjob._parse_2Dvec()
         if 'pulsedata' in scanjob:
             sg = []
-            for g in sweepdata['param']:
-                if sweepdata['param'][g] != 0:
+            for g, v in fast_sweep_gates.items():
+                if v != 0:
                     sg.append(g)
             if len(sg) > 1:
                 raise(Exception('AWG pulses does not yet support virtual gates'))
