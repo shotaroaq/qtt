@@ -260,25 +260,50 @@ class virtual_awg(Instrument):
 
         return wave_raw
     
-    def make_pulses(self, voltages, waittimes, filtercutoff=None, mvrange=None):
+    def make_pulses(self, voltages, waittimes, filtercutoff=None, rampparams=None, mvrange=None):
         """Make a pulse sequence with custom voltage levels and wait times at each level.
         
         Arguments:
             voltages (list of floats): voltage levels to be applied in the sequence
             waittimes (list of floats): duration of each pulse in the sequence
-            filtercutoff (float): cutoff frequency of a 1st order butterworth filter to make the pulse steps smoother 
+            filtercutoff (float): cutoff frequency of a 1st order butterworth filter to make the pulse steps smoother
+            rampparams (dict): times (list of floats), proportions (list of length 2 tuples of floats from 0 to 1). Ramp happens at the end of each pulse.
             
         Returns:
             wave_raw (array): raw data which represents the waveform
         """
         if len(waittimes) != len(voltages):
             raise Exception('Number of voltage levels must be equal to the number of wait times')
+        if rampparams is not None:
+            if (len(waittimes) != len(rampparams['times'])) or (len(waittimes) != len(rampparams['proportions'])):
+                raise Exception('Ramp parameter lists must be equal to the number of wait times')
+            if any(x > y for x, y in zip(rampparams['times'], waittimes)):
+                raise Exception('Ramp times cannot be longer than wait times')
+            for x in rampparams['proportions']:
+                if np.diff(x) < 0:
+                    raise Exception('First proportion in tuple must be larger than second')
+                if any((y > 1) or (y < 0) for y in x):
+                    raise Exception('Ramp proportions must be between 0 and 1')
+            ramptimes = rampparams['times']
+            rampprops = rampparams['proportions']
         samples = [int(x * self.AWG_clock) for x in waittimes]
+        ramples = [int(x * self.AWG_clock) for x in ramptimes]
         if mvrange is None:
             mvrange = [max(voltages), min(voltages)]
         v_wave = float((mvrange[0] - mvrange[1]) / self.ch_amp)
         v_prop = [2 * ((x - mvrange[1]) / (mvrange[0] - mvrange[1])) - 1 for x in voltages]
-        wave_raw = np.concatenate([x * v_wave * np.ones(y) for x, y in zip(v_prop, samples)])
+        if rampparams is not None:
+            wave_raw = np.array([])
+            for i, (x, y, z) in enumerate(zip(samples, ramples, rampprops)):
+                if i is not len(waittimes) - 1:
+                    v_diff = v_prop[i+1] - v_prop[i]
+                else:
+                    v_diff = v_prop[0] - v_prop[i]
+                wave_raw = np.concatenate((wave_raw, 
+                                     v_wave * np.concatenate((np.array(v_prop[i] * np.ones(x-y)),
+                                                             np.linspace(v_prop[i] + v_diff * z[0], v_prop[i] + v_diff * z[1], y))))) 
+        else:
+            wave_raw = np.concatenate([x * v_wave * np.ones(y) for x, y in zip(v_prop, samples)])
         if filtercutoff is not None:
             b,a = scipy.signal.butter(1,0.5*filtercutoff/self.AWG_clock, btype='low', analog=False, output='ba')
             wave_raw = scipy.signal.filtfilt(b,a,wave_raw)
@@ -354,6 +379,7 @@ class virtual_awg(Instrument):
         waveform = dict()
         for g in gate_comb:
             self.check_amplitude(g, gate_comb[g] * sweeprange)
+        for g in gate_comb:
             wave_raw = self.make_sawtooth(sweeprange, period, width)
             awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
             wave = wave_raw * gate_comb[g] / awg_to_plunger
@@ -377,6 +403,7 @@ class virtual_awg(Instrument):
         ''' Makes and outputs a waveform which overlays a sawtooth signal to sweep 
         a gate, with a pulse sequence. A marker is sent to the measurement instrument 
         at the start of the waveform.
+        IMPORTANT: The function offsets the voltages values so that the last point is 0 V on all gates (i.e. it centers the pulse sequence on the last point)
 
         Args:
             sweepdata (dict): inputs for the sawtooth (gate, sweeprange, period, width). 
@@ -399,6 +426,7 @@ class virtual_awg(Instrument):
             gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]]
         waittimes = pulsedata['waittimes']
         filtercutoff = pulsedata.get('filtercutoff',None)
+        rampparams = pulsedata.get('rampparams',None)
         
         pulsereps = int(period // sum(waittimes))
         waittimes = np.tile(waittimes, pulsereps)
@@ -411,8 +439,9 @@ class virtual_awg(Instrument):
         wave_sweep = self.make_sawtooth(sweeprange, period, width)
         for g in gate_voltages:
             self.check_amplitude(g, sweeprange + (mvrange[0]-mvrange[1]))
+        for g in gate_voltages:
             gate_voltages[g] = np.tile(gate_voltages[g], pulsereps)
-            wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, mvrange=mvrange)
+            wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, rampparams=rampparams, mvrange=mvrange)
             wave_raw = np.pad(wave_raw, (0,len(wave_sweep) - len(wave_raw)), 'edge')
             if sweepgate == g:
                 wave_raw += wave_sweep
@@ -574,6 +603,7 @@ class virtual_awg(Instrument):
         # horizontal virtual gate
         for g in gates_horz:
             self.check_amplitude(g, sweepranges[0] * gates_horz[g])
+        for g in gates_horz:
             wave_raw = self.make_sawtooth(sweepranges[0], period_horz, repetitionnr=resolution[0])
             awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
             wave = wave_raw * gates_horz[g] / awg_to_plunger
@@ -584,6 +614,7 @@ class virtual_awg(Instrument):
         # vertical virtual gate
         for g in gates_vert:
             self.check_amplitude(g, sweepranges[1] * gates_vert[g])
+        for g in gates_vert:
             wave_raw = self.make_sawtooth(sweepranges[1], period_vert)
             awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
             wave = wave_raw * gates_vert[g] / awg_to_plunger
@@ -637,10 +668,11 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def pulse_gates(self, gate_voltages, waittimes, filtercutoff=None, delete=True):
+    def pulse_gates(self, gate_voltages, waittimes, filtercutoff=None, rampparams=None, delete=True):
         ''' Send a pulse sequence with the AWG that can span over any gate space.
         Sends a marker to measurement instrument at the start of the sequence.
         Only works with physical gates.
+        IMPORTANT: The function offsets the voltages values so that the last point is 0 V on all gates (i.e. it centers the pulse sequence on the last point)
 
         Arguments:
             gate_voltages (dict): keys are gates to apply the sequence to, and values
@@ -660,7 +692,7 @@ class virtual_awg(Instrument):
         mvrange = [max(allvoltages), min(allvoltages)]
         waveform = dict()
         for g in gate_voltages:
-            wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, mvrange=mvrange)
+            wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, rampparams=rampparams, mvrange=mvrange)
             awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
             wave = wave_raw / awg_to_plunger
             waveform[g] = dict()
