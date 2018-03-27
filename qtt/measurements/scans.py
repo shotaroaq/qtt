@@ -890,6 +890,8 @@ def fastScan(scanjob, station):
         return 0
 
     awg = getattr(station, 'awg')
+    if awg is None:
+        return False
 
     if not awg.awg_gate(scanjob['sweepdata']['param']):
         # sweep gate is not fast, so no fast scan possible
@@ -1009,7 +1011,7 @@ def scan2D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
                 '%H:%M:%S', qtt.time.gmtime(time_est))
             if type(stepvalues) is np.ndarray:
                 tprint('scan2D: %d/%d, time %s (~%s remaining): setting %s to %s' %
-                       (ix, len(stepvalues), t1_str, time_est_str, stepdata['param'].name, str(x)), dt=.5)
+                       (ix, len(stepvalues), t1_str, time_est_str, stepdata['param'].name, str(x)), dt=1.5)
             else:
                 tprint('scan2D: %d/%d: time %s (~%s remaining): setting %s to %.3f' %
                        (ix, len(stepvalues), t1_str, time_est_str, stepvalues.name, x), dt=1.5)
@@ -1256,7 +1258,7 @@ def select_digitizer_memsize(digitizer, period, trigger_delay=None, nsegments=1,
         print('%s: trace %d points, selected memsize %d' %
               (digitizer.name, npoints, memsize))
         print('%s: pre and post trigger: %d %d' % (digitizer.name,
-                                                   digitizer.pretrigger_memory_size(), digitizer.posttrigger_memory_size()))
+                                                   digitizer.data_memory_size() - digitizer.posttrigger_memory_size(), digitizer.posttrigger_memory_size()))
     return memsize
 
 
@@ -1401,6 +1403,8 @@ def measuresegment(waveform, Naverage, minstrhandle, read_ch, mV_range=2000, pro
 
 def acquire_segments(station, parameters, average=True, mV_range=2000, save_to_disk=True, location=None):
     """Record triggered segments as time traces into dataset. AWG must be already sending a trigger pulse per segment.
+
+    The saving to disk can take minutes or even longer.
 
     Args:
         parameters (dict): dictionary containing the following compulsory parameters:

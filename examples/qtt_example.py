@@ -53,7 +53,6 @@ model = station.model
 
 mwindows = qtt.tools.setupMeasurementWindows(station, create_parameter_widget=False)
 pv = createParameterWidget([gates, ])
-plotQ = mwindows['plotwindow']
 
 logviewer = qtt.gui.dataviewer.DataViewer()
 logviewer.show()
@@ -83,7 +82,7 @@ print(data1d.default_parameter_name())
 start = -500
 scanjob = scanjob_t({'sweepdata': dict({'param': param_right, 'start': start, 'end': start + 400, 'step': 4., 'wait_time': 0.}), 'minstrument': ['keithley1']})
 scanjob['stepdata'] = dict({'param': param_left, 'start': start, 'end': start + 400, 'step': 5.})
-data = qtt.measurements.scans.scan2D(station, scanjob, liveplotwindow=plotQ)
+data = qtt.measurements.scans.scan2D(station, scanjob)
 
 gates.set(param_right, -300); gates.set(param_left, -300)
 gv=gates.allvalues()
@@ -119,7 +118,7 @@ cc2=virts.VP2()
 r=80
 scanjob = scanjob_t({'sweepdata': dict({'param': virts.VP1, 'start': cc1-100, 'end': cc1 + 100, 'step': 4.}), 'minstrument': ['keithley1'], 'wait_time': 0.})
 scanjob['stepdata'] = dict({'param': virts.VP2, 'start': cc2 - r, 'end': cc2 +r, 'step': 2.})
-data = qtt.measurements.scans.scan2D(station, scanjob, liveplotwindow=plotQ)
+data = qtt.measurements.scans.scan2D(station, scanjob)
 gates.resetgates(gv, gv, verbose=0)
 
 
@@ -140,3 +139,17 @@ if 0:
 qtt.instrument_drivers.virtual_gates.test_virtual_gates()
 qtt.measurements.scans.test_scan2D()
 
+#%% Start videomode
+
+digitizer=station.sdigitizer
+station.awg=station.vawg
+
+
+print('starting videomode in background...')
+gates.P3.increment(40)
+vm = qtt.measurements.videomode.VideoMode(station, ['P1', 'P2'], [160]*2,    
+                    minstrument=(digitizer.name,[1,1]), resolution = [96,96],
+                    diff_dir=[None, 'g'] )
+vm.crosshair(True)
+
+                                               

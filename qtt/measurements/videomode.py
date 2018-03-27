@@ -8,6 +8,8 @@ import time
 import datetime
 import threading
 import numpy as np
+import warnings
+import logging
 from scipy import ndimage
 from colorama import Fore
 import pyqtgraph as pg
@@ -26,17 +28,16 @@ from qtt.measurements.scans import plotData, makeDataset_sweep, makeDataset_swee
 
 class videomode_callback:
 
-    def __init__(self, station, waveform, Naverage, minstrument, waittime=0,
+    def __init__(self, station, waveform, Naverage, minstrument,
                  diff_dir=None, resolution=None):
         """ Create callback object for videmode data
 
         Args:
-            station
+            station (QCoDeS station)
             waveform
-            Naverage
+            Naverage (int): number of average to take
             minstrument (tuple): instrumentname, channel
-            waittime (float): ???
-            diff_dir
+            diff_dir (list or (int, str)): differentiation modes for the data
         """
         self.station = station
         self.waveform = waveform
@@ -47,8 +48,8 @@ class videomode_callback:
         if not isinstance(self.channels, list):
             self.channels = [self.channels]
 
-        self.waittime = waittime
-
+        self.unique_channels = list(np.unique(self.channels))
+        
         # for 2D scans
         self.resolution = resolution
         self.diffsigma = 1
@@ -66,19 +67,24 @@ class videomode_callback:
 
         minstrumenthandle = self.station.components[self.minstrument]
         data = qtt.measurements.scans.measuresegment(
-            self.waveform, self.Naverage, minstrumenthandle, self.channels)
+            self.waveform, self.Naverage, minstrumenthandle, self.unique_channels)
 
         if np.all(data == 0):
             self.stopreadout()
             raise Exception('data returned contained only zeros, aborting')
 
         dd = []
-        for ii in range(len(data)):
-            data_processed = np.array(data[ii])
+        for ii, channel in enumerate(self.channels):
+            uchannelidx= self.unique_channels.index(channel)
+            data_processed = np.array(data[uchannelidx])
 
             if self.diff_dir is not None:
+                if isinstance(self.diff_dir, (list, tuple)):
+                    diff_dir = self.diff_dir[ii]
+                else:
+                    diff_dir = self.diff_dir
                 data_processed = qtt.diffImageSmooth(
-                    data_processed, dy=self.diff_dir, sigma=self.diffsigma)
+                    data_processed, dy=diff_dir, sigma=self.diffsigma)
 
             if self.smoothing:
                 data_processed = qtt.algorithms.generic.smoothImage(
@@ -130,6 +136,7 @@ class VideoMode:
         self.sample_rate = sample_rate
         self.diff_dir = diff_dir
         self.datalock = threading.Lock()
+        self.datafunction_result = None
 
         # parse instrument
         if 'fpga' in station.components:
@@ -324,13 +331,16 @@ class VideoMode:
         """ Return latest recorded dataset """
         with self.datalock:
             if run:
+                warnings.warn('not supported')
                 # [l.datafunction_result for l in self.lp]
                 data = self.datafunction_result
                 data = np.array(data)
             else:
                 data = self.datafunction_result
-                data = np.array(data)
-            self.alldata = self.makeDataset(data, Naverage=None)
+                if data is not None:
+                    data = np.array(data)
+            if data is not None:
+                self.alldata = self.makeDataset(data, Naverage=None)
             return self.alldata
 
     def scan_dimension(self):
@@ -349,13 +359,15 @@ class VideoMode:
                   (self.__class__.__name__,) + Fore.RESET)
 
         dim = self.scan_dimension()
+        awg = getattr(self.station, 'awg')
+        
         if dim == 1:
             # 1D scan
             if type(self.sweepparams) is str:
-                waveform, _ = self.station.awg.sweep_gate(
+                waveform, _ = awg.sweep_gate(
                     self.sweepparams, self.sweepranges, period=1e-3)
             elif type(self.sweepparams) is dict:
-                waveform, _ = self.station.awg.sweep_gate_virt(
+                waveform, _ = awg.sweep_gate_virt(
                     self.sweepparams, self.sweepranges, period=1e-3)
             else:
                 raise Exception('arguments not supported')
@@ -364,10 +376,10 @@ class VideoMode:
         elif dim == 2:
             # 2D scan
             if isinstance(self.sweepparams, list):
-                waveform, _ = self.station.awg.sweep_2D(self.sampling_frequency.get(
+                waveform, _ = awg.sweep_2D(self.sampling_frequency.get(
                 ), self.sweepparams, self.sweepranges, self.resolution)
             elif isinstance(self.sweepparams, dict):
-                waveform, _ = self.station.awg.sweep_2D_virt(self.sampling_frequency.get(), self.sweepparams[
+                waveform, _ = awg.sweep_2D_virt(self.sampling_frequency.get(), self.sweepparams[
                                                              'gates_horz'], self.sweepparams['gates_vert'], self.sweepranges, self.resolution)
             else:
                 raise Exception('arguments not supported')
@@ -414,7 +426,7 @@ class VideoMode:
                                            gates=self.station.gates, loc_record={'label': 'videomode_1d_single'})
         elif data.ndim == 3:
             if (data.shape[0] > 1):
-                raise Exception('not yet implemented')
+                raise Exception('getting dataset for multiple dimensions not yet implemented')
             data = data[0]
             alldata, _ = makeDataset_sweep_2D(data, self.station.gates, self.sweepparams, self.sweepranges, loc_record={
                                               'label': 'videomode_2d_single'})
@@ -435,154 +447,26 @@ class VideoMode:
         self.datafunction.Naverage = value
         self.box.setValue(value)
 
+    @staticmethod
+    def all_instances():
+        """ Return all VideoMode instances """
+        lst = qtt.pgeometry.list_objects(VideoMode)
+        return lst
 
-#%%
-import qcodes
-import logging
+    @staticmethod
+    def stop_all_instances():
+        """ Stop readout on all all VideoMode instances """
+        lst = qtt.pgeometry.list_objects(VideoMode)
+        for v in lst:
+            v.stopreadout()
 
-
-class SimulationDigitizer(qcodes.Instrument):
-
-    def __init__(self, name, model=None, **kwargs):
-        super().__init__(name, **kwargs)
-        self.current_sweep = None
-        self.model = model
-        self.add_parameter('sample_rate', set_cmd=None, initial_value=1e6)
-        self.debug = {}
-        self.verbose = 0
-
-    def measuresegment(self, waveform, channels=[0]):
-        import time
-        if self.verbose:
-            print('%s: measuresegment: channels %s' % (self.name, channels))
-            print(waveform)
-        self._waveform = waveform
-
-        sd1, sd2 = self.myhoneycomb()
-        time.sleep(.05)
-        return [sd1, sd2][0:len(channels)]
-
-    def myhoneycomb(self, multiprocess=False, verbose=0):
-        """
-        Args:
-            model (object):
-            Vmatrix (array): transformation from ordered scan gates to the sourcenames 
-            erange, drange (float):
-            nx, ny (integer):
-        """
-        test_dot = self.model.ds
-        waveform = self._waveform
-        model = self.model
-        sweepgates = waveform['sweepgates']
-        ndim = len(sweepgates)
-
-        nn = waveform['resolution']
-        if isinstance(nn, float):
-            nn = [nn] * ndim
-        nnr = nn[::-1]  # funny reverse ordering
-
-        if verbose >= 2:
-            print('myhoneycomb: start resolution %s' % (nn,))
-
-        if ndim != len(nn):
-            raise Exception(
-                'number of sweep gates %d does not match resolution' % ndim)
-
-        ng = len(model.gate_transform.sourcenames)
-        test2Dparams = np.zeros((test_dot.ngates, *nnr))
-        gate2Dparams = np.zeros((ng, *nnr))
-        logging.info('honeycomb: %s' % (nn,))
-
-        rr = waveform['sweepranges']
-
-        v = model.gate_transform.sourcenames
-        ii = [v.index(s) for s in sweepgates]
-        Vmatrix = np.eye(len(v))  # , 3) )
-        idx = np.array((range(len(v))))
-        for i, j in enumerate(ii):
-            idx[i], idx[j] = idx[j], idx[i]
-        Vmatrix = Vmatrix[:, idx].copy()
-
-        sweeps = []
-        for ii in range(ndim):
-            sweeps.append(np.linspace(-rr[ii], rr[ii], nn[ii]))
-        meshgrid = np.meshgrid(*sweeps)
-        mm = tuple([xv.flatten() for xv in meshgrid])
-        w = np.vstack((*mm, np.zeros((ng - ndim, mm[0].size))))
-        ww = np.linalg.inv(Vmatrix).dot(w)
-
-        for ii, p in enumerate(model.gate_transform.sourcenames):
-            val = model.get_gate(p)
-            gate2Dparams[ii] = val
-
-        for ii, p in enumerate(model.gate_transform.sourcenames):
-            gate2Dparams[ii] += ww[ii].reshape(nnr)
-
-        qq = model.gate_transform.transformGateScan(
-            gate2Dparams.reshape((gate2Dparams.shape[0], -1)))
-        # for debugging
-        self.debug['gate2Dparams'] = gate2Dparams
-        self.debug['qq'] = qq
-
-        for ii in range(test_dot.ndots):
-            test2Dparams[ii] = qq['det%d' % (ii + 1)].reshape(nnr)
-
-        if ndim == 1:
-            test2Dparams = test2Dparams.reshape(
-                (test2Dparams.shape[0], test2Dparams.shape[1], 1))
-        # run the honeycomb simulation
-        test_dot.simulate_honeycomb(
-            test2Dparams, multiprocess=multiprocess, verbose=0)
-
-        sd1 = ((test_dot.hcgs) * (model.sddist1.reshape((1, 1, -1)))).sum(axis=-1)
-        sd2 = ((test_dot.hcgs) * (model.sddist2.reshape((1, 1, -1)))).sum(axis=-1)
-        sd1 *= (1 / np.sum(model.sddist1))
-        sd2 *= (1 / np.sum(model.sddist2))
-
-        if model.sdnoise > 0:
-            sd1 += model.sdnoise * \
-                (np.random.rand(*test_dot.honeycomb.shape) - .5)
-            sd2 += model.sdnoise * \
-                (np.random.rand(*test_dot.honeycomb.shape) - .5)
-        if ndim == 1:
-            sd1 = sd1.reshape((-1,))
-            sd2 = sd2.reshape((-1,))
-        #plt.figure(1000); plt.clf(); plt.plot(sd1, '.b'); plt.plot(sd2,'.r')
-        return sd1, sd2
-
-
-class simulation_awg(qcodes.Instrument):
-
-    def __init__(self, name, **kwargs):
-        super().__init__(name, **kwargs)
-        self.add_parameter('sampling_frequency',
-                           set_cmd=None, initial_value=1e6)
-
-    def sweep_2D(self, samp_freq, sweepgates, sweepranges, resolution):
-        self.current_sweep = {'waveform': 'simulation_awg', 'sweepgates': sweepgates, 'sweepranges': sweepranges,
-                              'type': 'sweep_2D', 'samp_freq': samp_freq, 'resolution': resolution}
-        waveform = self.current_sweep
-        return waveform, None
-
-    def sweep_gate(self, gate, sweeprange, period, width=.95, wave_name=None, delete=True):
-        self.current_sweep = {'waveform': 'simulation_awg', 'gate': gate, 'sweeprange': sweeprange,
-                              'type': 'sweep_gate', 'period': period, 'width': width, 'wave_name': wave_name}
-
-        waveform = self.current_sweep
-        waveform['resolution'] = [int(period * self.sampling_frequency())]
-        waveform['sweepgates'] = [waveform['gate']]
-        waveform['sweepranges'] = [waveform['sweeprange']]
-
-        sweep_info = None
-        return waveform, sweep_info
-
-    def stop(self):
-        pass
 
 #%% Testing
 
 
 if __name__ == '__main__':
+    from qtt.instrument_drivers.simulation_instruments import SimulationDigitizer
+    from qtt.instrument_drivers.simulation_instruments import SimulationAWG
     import pdb
     from imp import reload
     import matplotlib.pyplot as plt
@@ -599,7 +483,7 @@ if __name__ == '__main__':
         qtt.measurements.scans.instrumentName('sdigitizer'), model=station.model)
     station.components[digitizer.name] = digitizer
 
-    station.awg = simulation_awg(qtt.measurements.scans.instrumentName('vawg'))
+    station.awg = SimulationAWG(qtt.measurements.scans.instrumentName('vawg'))
     station.components[station.awg.name] = station.awg
 
     if 1:
