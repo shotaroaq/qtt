@@ -351,12 +351,12 @@ def scan1D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
     myupdate()
     dt = time.time() - t0
 
-    if scanjob['scantype'] is 'scan1Dvec':
-        for param in scanjob['phys_gates_vals']:
-            parameter = gates.parameters[param]
-            arr = DataArray(name=parameter.name, array_id=parameter.name, label=parameter.label, unit=parameter.unit,
-                            preset_data=scanjob['phys_gates_vals'][param], set_arrays=(alldata.arrays[sweepvalues.parameter.name],))
-            alldata.add_array(arr)
+#    if scanjob['scantype'] is 'scan1Dvec':
+#        for param in scanjob['phys_gates_vals']:
+#            parameter = gates.parameters[param]
+#            arr = DataArray(name=parameter.name, array_id=parameter.name, label=parameter.label, unit=parameter.unit,
+#                            preset_data=scanjob['phys_gates_vals'][param], set_arrays=(alldata.arrays[sweepvalues.parameter.name],))
+#            alldata.add_array(arr)
 
     if not hasattr(alldata, 'metadata'):
         alldata.metadata = dict()
@@ -429,11 +429,28 @@ def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True
             sweeprange = (sweepdata['end'] - sweepdata['start'])
             sweepgate_value = (sweepdata['start'] + sweepdata['end']) / 2
             gates.set(sweepdata['param'], float(sweepgate_value))
-        waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period, delete=delete)
+        if 'pulsedata' in scanjob:
+            waveform, sweep_info = station.awg.sweepandpulse_gate(
+                {'gate': sweepdata['param'].name,
+                    'sweeprange': sweeprange, 'period': period},
+                scanjob['pulsedata'])
+        else:
+            waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period, delete=delete)
     else:
         sweeprange = sweepdata['range']
-        waveform, sweep_info = station.awg.sweep_gate_virt(
-            fast_sweep_gates, sweeprange, period, delete=delete)
+        if 'pulsedata' in scanjob:
+            sg = []
+            for g, v in fast_sweep_gates.items():
+                if v != 0:
+                    sg.append(g)
+            if len(sg) > 1:
+                raise(Exception('AWG pulses does not yet support virtual gates'))
+            waveform, sweep_info = station.awg.sweepandpulse_gate(
+                {'gate':sg[0], 'sweeprange':sweeprange, 'period':period},
+                scanjob['pulsedata'])
+        else:
+            waveform, sweep_info = station.awg.sweep_gate_virt(
+                    fast_sweep_gates, sweeprange, period, delete=delete)
 
     qtt.time.sleep(wait_time_startscan)
 

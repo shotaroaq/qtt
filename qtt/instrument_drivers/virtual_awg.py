@@ -151,8 +151,17 @@ class virtual_awg(Instrument):
         for g in sweepgates:
             sweep_info[self.awg_map[g]] = dict()
             sweep_info[self.awg_map[g]]['waveform'] = waveforms[g]['wave']
-            sweep_info[self.awg_map[g]]['marker1'] = np.zeros(wave_len)
-            sweep_info[self.awg_map[g]]['marker2'] = np.zeros(wave_len)
+            if 'marker1'  in waveforms[g]:                                       #Marc's Code
+                sweep_info[self.awg_map[g]]['marker1'] = waveforms[g]['marker1'] #Marc's Code
+            else:                                                                #Marc's Code
+                sweep_info[self.awg_map[g]]['marker1'] = np.zeros(wave_len)
+            
+            if 'marker2' in waveforms[g]:                                        #Marc's Code
+                sweep_info[self.awg_map[g]]['marker2'] = waveforms[g]['marker2'] #Marc's Code
+            else:                                                                #Marc's Code
+                sweep_info[self.awg_map[g]]['marker2'] = np.zeros(wave_len)
+            
+            
             if 'name' in waveforms[g]:
                 sweep_info[self.awg_map[g]]['name'] = waveforms[g]['name']
             else:
@@ -162,7 +171,7 @@ class virtual_awg(Instrument):
 
         # marker points
         marker_points = np.zeros(wave_len)
-        marker_points[int(marker_delay * self.AWG_clock):(int(marker_delay * self.AWG_clock) + wave_len // 20)] = 1.0
+        marker_points[int(marker_delay * self.AWG_clock):(int(marker_delay * self.AWG_clock) + wave_len // 200)] = 1.0
 
         if marker_info[:2] not in sweep_info:
             sweep_info[marker_info[:2]] = dict()
@@ -286,8 +295,8 @@ class virtual_awg(Instrument):
                     raise Exception('Ramp proportions must be between 0 and 1')
             ramptimes = rampparams['times']
             rampprops = rampparams['proportions']
+            ramples = [int(x * self.AWG_clock) for x in ramptimes]
         samples = [int(x * self.AWG_clock) for x in waittimes]
-        ramples = [int(x * self.AWG_clock) for x in ramptimes]
         if mvrange is None:
             mvrange = [max(voltages), min(voltages)]
         v_wave = float((mvrange[0] - mvrange[1]) / self.ch_amp)
@@ -668,7 +677,7 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def pulse_gates(self, gate_voltages, waittimes, filtercutoff=None, rampparams=None, delete=True):
+    def pulse_gates(self, gate_voltages, waittimes, marker_voltages=None, marker_waittimes=None, filtercutoff=None, rampparams=None, delete=True): #Marc's Code
         ''' Send a pulse sequence with the AWG that can span over any gate space.
         Sends a marker to measurement instrument at the start of the sequence.
         Only works with physical gates.
@@ -685,8 +694,8 @@ class virtual_awg(Instrument):
         '''
 
         period = sum(waittimes)
-        for g in gate_voltages:
-            gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]]
+#        for g in gate_voltages:
+#            gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]] #This line takes the pulse to 0 in the last part!
         allvoltages = np.concatenate([v for v in gate_voltages.values()])
         
         mvrange = [max(allvoltages), min(allvoltages)]
@@ -695,6 +704,9 @@ class virtual_awg(Instrument):
             wave_raw = self.make_pulses(gate_voltages[g], waittimes, filtercutoff=filtercutoff, rampparams=rampparams, mvrange=mvrange)
             awg_to_plunger = self.hardware.parameters['awg_to_%s' % g].get()
             wave = wave_raw / awg_to_plunger
+            if marker_voltages is not None:
+                markerwave = self.make_markers(marker_voltages[g],marker_waittimes) #Marc's Code
+                waveform[g]['marker1']= markerwave #Marc's Code
             waveform[g] = dict()
             waveform[g]['wave'] = wave
             waveform[g]['name'] = 'pulses_%s' % g
@@ -762,6 +774,29 @@ class virtual_awg(Instrument):
             min_amp = np.ceil(min_amp * 10) / 10
             self.set_amplitude(min_amp)
             warnings.warn('AWG amplitude too low for this range, setting to %.1f' % min_amp)
+            
+    def make_markers(self, voltages, waittimes, mvrange=None): #Taken from Marc's Code
+        """Make a pulse sequence with custom voltage levels and wait times at each level.
+        
+        Arguments:
+            voltages (list of floats): voltage levels to be applied in the sequence
+            waittimes (list of floats): duration of each pulse in the sequence
+            
+        Returns:
+            wave_raw (array): raw data which represents the waveform
+        """
+        if len(waittimes) != len(voltages):
+            raise Exception('Number of voltage levels must be equal to the number of wait times')
+        samples = [int(round(x * self.AWG_clock)) for x in waittimes]
+        if mvrange is None:
+            mvrange = [max(voltages), min(voltages)]
+        v_wave = float((mvrange[0] - mvrange[1]) )
+#        v_prop = [2 * ((x - mvrange[1]) / (mvrange[0] - mvrange[1])) - 1 for x in voltages]
+        v_prop = [(x  / (mvrange[0] - mvrange[1])) for x in voltages]
+        wave_raw = np.concatenate([x * v_wave * np.ones(y) for x, y in zip(v_prop, samples)])
+        
+        
+        return wave_raw
 
 #%%
 
@@ -814,3 +849,27 @@ def sweep_2D_process(data, waveform, diff_dir=None):
         data_processed = qtt.diffImageSmooth(data_processed, dy=diff_dir, sigma=1)
 
     return data_processed
+
+
+def make_markers(self, voltages, waittimes, mvrange=None): #Taken from Marc's Code
+        """Make a pulse sequence with custom voltage levels and wait times at each level.
+        
+        Arguments:
+            voltages (list of floats): voltage levels to be applied in the sequence
+            waittimes (list of floats): duration of each pulse in the sequence
+            
+        Returns:
+            wave_raw (array): raw data which represents the waveform
+        """
+        if len(waittimes) != len(voltages):
+            raise Exception('Number of voltage levels must be equal to the number of wait times')
+        samples = [int(round(x * self.AWG_clock)) for x in waittimes]
+        if mvrange is None:
+            mvrange = [max(voltages), min(voltages)]
+        v_wave = float((mvrange[0] - mvrange[1]) )
+#        v_prop = [2 * ((x - mvrange[1]) / (mvrange[0] - mvrange[1])) - 1 for x in voltages]
+        v_prop = [(x  / (mvrange[0] - mvrange[1])) for x in voltages]
+        wave_raw = np.concatenate([x * v_wave * np.ones(y) for x, y in zip(v_prop, samples)])
+        
+        
+        return wave_raw
