@@ -731,7 +731,7 @@ try:
         else:
             slide.shapes.title.textframe.textrange.text = 'QCoDeS measurement'
 
-        import qtt.measurements.ttrace
+#        import qtt.measurements.ttrace
 
         if fig is not None:
             fname = tempfile.mktemp(prefix='qcodesimageitem', suffix='.png')
@@ -740,10 +740,10 @@ try:
             elif isinstance(fig, int):
                 fig = plt.figure(fig)
                 fig.savefig(fname)
-            elif isinstance(fig, qtt.measurements.ttrace.MultiTracePlot) or \
-                           fig.__class__.__name__=='MultiTracePlot':
-                    figtemp = fig.plotwin.grab()
-                    figtemp.save(fname)
+#            elif isinstance(fig, qtt.measurements.ttrace.MultiTracePlot) or \
+#                           fig.__class__.__name__=='MultiTracePlot':
+#                    figtemp = fig.plotwin.grab()
+#                    figtemp.save(fname)
             elif isinstance(fig, qtt.measurements.videomode.VideoMode) or fig.__class__.__name__=='VideoMode':
                 if isinstance(fig.lp, list):
                     # do NOT change this into a list comprehension

@@ -774,7 +774,7 @@ def saveExperimentData(outputdir, dataset, tag, dstr):
     write_data(path, dataset)
 
 
-def makeDataSet1Dplain(xname, x, yname, y, xunit=None, yunit=None, location=None, loc_record=None):
+def makeDataSet1Dplain(xname, x, yname, y=None, xunit=None, yunit=None, location=None, loc_record=None, **kwargs):
     ''' Make DataSet with one 1D array and one setpoint array
 
     Arguments:
@@ -784,10 +784,13 @@ def makeDataSet1Dplain(xname, x, yname, y, xunit=None, yunit=None, location=None
         y (array): the measured data
     '''
     xx = np.array(x)
-    yy = np.array(y)
+    if y is not None:
+        yy = np.array(y)
+    else:
+        yy = np.NaN * np.ones(xx.size)
     x = DataArray(name=xname, array_id=xname, preset_data=xx,
                   unit=xunit, is_setpoint=True)
-    dd = new_data(arrays=(), location=location, loc_record=loc_record)
+    dd = new_data(arrays=(), location=location, loc_record=loc_record, **kwargs)
     dd.add_array(x)
     if isinstance(yname, str):
         y = DataArray(name=yname, array_id=yname,
@@ -802,7 +805,7 @@ def makeDataSet1Dplain(xname, x, yname, y, xunit=None, yunit=None, location=None
     return dd
 
 
-def makeDataSet1D(x, yname='measured', y=None, location=None, loc_record=None, return_names=False):
+def makeDataSet1D(x, yname='measured', y=None, location=None, loc_record=None, return_names=False, **kwargs):
     ''' Make DataSet with one or multiple 1D arrays and one setpoint array.
 
     Arguments:
@@ -832,7 +835,7 @@ def makeDataSet1D(x, yname='measured', y=None, location=None, loc_record=None, r
             # assume p is a Parameter
             measure_names += [p.full_name]
 
-    dd = new_data(arrays=(), location=location, loc_record=loc_record)
+    dd = new_data(arrays=(), location=location, loc_record=loc_record, **kwargs)
 
     for idm, mname in enumerate(measure_names):
         ytmp = DataArray(name=mname, array_id=mname, label=mname,
@@ -849,7 +852,7 @@ def makeDataSet1D(x, yname='measured', y=None, location=None, loc_record=None, r
         return dd
 
 
-def makeDataSet2Dplain(xname, x, yname, y, zname='measured', z=None, xunit=None, yunit=None, zunit=None, location=None, loc_record=None):
+def makeDataSet2Dplain(xname, x, yname, y, zname='measured', z=None, xunit=None, yunit=None, zunit=None, location=None, loc_record=None, **kwargs):
     ''' Make DataSet with one 2D array and two setpoint arrays
 
     Arguments:
@@ -858,20 +861,20 @@ def makeDataSet2Dplain(xname, x, yname, y, zname='measured', z=None, xunit=None,
         zname (str or list): the name of the measured array
         z (array): the measured data
     '''
-    xx = np.array(x)
-    yy0 = np.array(y)
-    yy = np.tile(yy0, [xx.size, 1])
-    zz = np.NaN * np.ones((xx.size, yy0.size))
-    xa = DataArray(name=xname, array_id=xname, preset_data=xx,
-                   unit=xunit, is_setpoint=True)
+    yy = np.array(y)
+    xx0 = np.array(x)
+    xx = np.tile(xx0, [yy.size, 1])
+    zz = np.NaN * np.ones((yy.size, xx0.size))
     ya = DataArray(name=yname, array_id=yname, preset_data=yy,
-                   unit=yunit, set_arrays=(xa,), is_setpoint=True)
-    dd = new_data(arrays=(), location=location, loc_record=loc_record)
+                   unit=yunit, is_setpoint=True)
+    xa = DataArray(name=xname, array_id=xname, preset_data=xx,
+                   unit=xunit, set_arrays=(ya,), is_setpoint=True)
+    dd = new_data(arrays=(), location=location, loc_record=loc_record, **kwargs)
     if isinstance(zname, str):
         zname = [zname]
     for ii, name in enumerate(zname):
         za = DataArray(name=name, array_id=name, label=name,
-                       preset_data=np.copy(zz), unit=zunit, set_arrays=(xa, ya))
+                       preset_data=np.copy(zz), unit=zunit, set_arrays=(ya, xa))
         dd.add_array(za)
         if z is not None:
             getattr(dd, name).ndarray = np.array(z[ii])
@@ -884,7 +887,7 @@ def makeDataSet2Dplain(xname, x, yname, y, zname='measured', z=None, xunit=None,
 
 
 def makeDataSet2D(p1, p2, measure_names='measured', location=None, loc_record=None,
-                  preset_data=None, return_names=False):
+                  preset_data=None, return_names=False, **kwargs):
     """ Make DataSet with one or multiple 2D array and two setpoint arrays.
 
     If the preset_data is used for multiple 2D arrays, then the order of 
@@ -922,7 +925,7 @@ def makeDataSet2D(p1, p2, measure_names='measured', location=None, loc_record=No
         else:
             # assume p is a Parameter
             measure_names += [p.full_name]
-    dd = new_data(arrays=(), location=location, loc_record=loc_record)
+    dd = new_data(arrays=(), location=location, loc_record=loc_record, **kwargs)
     for idm, mname in enumerate(measure_names):
         z = DataArray(name=mname, array_id=mname, label=mname,
                       preset_data=np.copy(zz), set_arrays=(x, y))
