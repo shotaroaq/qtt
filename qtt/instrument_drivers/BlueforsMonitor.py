@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 import getopt
+import logging
 
 from datetime import datetime
 from qtt.instrument_drivers.DistributedInstrument import InstrumentDataClient
@@ -18,24 +19,15 @@ class FridgeDataReceiver(InstrumentDataClient):
 
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
-        self.add_measurable_quantity('temperatures', 'K', -1,
-                                     'The CH temperature values')
-        self.add_measurable_quantity('pressures', 'bar', -1,
-                                     'The maxigauge pressures values')
-        self.add_measurable_quantity('cpatempwo', '°C', None,
-                                     'The compressor output water temperature',
-                                     command_name='status',
-                                     params={'item': 'cpatempwo'})
-        self.add_measurable_quantity('cpatempwi', '°C', None,
-                                     'The compressor input water temperature',
-                                     command_name='status',
-                                     params={'item': 'cpatempwi'})
-        self.add_measurable_quantity('cpawarn', 'arb.', None,
-                                     'The compressor status',
-                                     command_name='status',
-                                     params={'item': 'cpawarn'})
-        self.add_measurable_quantity('datetime', '', -1,
-                                     'The server date and time (for testing)')
+        self.add_get_command(None, 'temperatures', 'K', -1, 'The CH temperature values')
+        self.add_get_command(None, 'pressures', 'bar', -1, 'The maxigauge pressures values')
+        self.add_get_command(None, 'datetime', '', -1, 'The server date and time (for testing)')
+        self.add_get_command('cpatempwo', 'status', '°C', None,
+                             'The compressor output water temperature', {'item': 'cpatempwo'})
+        self.add_get_command('cpatempwi', 'status', '°C', None,
+                             'The compressor input water temperature', {'item': 'cpatempwi'})
+        self.add_get_command('cpawarn', 'status', 'arb.', None,
+                             'The compressor status', {'item': 'cpawarn'})
 
 # -----------------------------------------------------------------------------
 
@@ -134,7 +126,8 @@ class FridgeDataSender():
                                     "Error log not present " +
                                     "({0}/1 files found on BlueFors desktop)!"
                                     .format(file_count))
-        return self._read_status_(status_files[0], item)
+        result = self._read_status_(status_files[0], item)
+        return result
 
     def _read_status_(self, file_path, name):
         E = FridgeDataSender._get_tail_line_(file_path)
@@ -210,7 +203,7 @@ class BlueforsApp():
         if len(argv) < 2:
             self.print_usage(1)
         try:
-            options, arguments = getopt.getopt(argv[1:],
+            options, _ = getopt.getopt(argv[1:],
                                                BlueforsApp._short_options_,
                                                BlueforsApp._long_options_)
         except getopt.GetoptError:
@@ -242,21 +235,18 @@ if __name__ == '__main__':
 # Sample for local testing
 
 # Python console 1: server
-if None:
-    from qtt.instrument_drivers.BlueforsMonitor import BlueforsApp
-    argv = ['', '-d', '<fridge_data_dir>']
-    BlueforsApp().main(argv)
+"""
+from qtt.instrument_drivers.BlueforsMonitor import BlueforsApp
+argv = ['', '-d', '<fridge_data_dir>', '-n', '10501']
+BlueforsApp().main(argv)
+"""
 
 # Python console 2: client
-if None:
-    from qtt.instrument_drivers.BlueforsMonitor import FridgeDataReceiver
-    client = FridgeDataReceiver(name='dummy_fridge')
-    print(client.temperatures())
-    print(client.pressures())
-    print(client.cpatempwo())
-    print(client.cpatempwi())
-    print(client.cpawarn())
-    print(client.datetime())
-    client.close()
+"""
+from qtt.instrument_drivers.BlueforsMonitor import FridgeDataReceiver
+client = FridgeDataReceiver(name='dummy_fridge', port=10501)
+print(client.datetime())
+client.close()
+"""
 
 # -----------------------------------------------------------------------------
