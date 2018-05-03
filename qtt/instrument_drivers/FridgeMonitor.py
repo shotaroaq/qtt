@@ -9,7 +9,7 @@ from qcodes.instrument_drivers.american_magnetics.AMI430_IP import AMI430
 from qtt.instrument_drivers.DistributedInstrument import InstrumentDataClient
 from qtt.instrument_drivers.DistributedInstrument import InstrumentDataServer
 
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 
 
 class FridgeDataReceiver(InstrumentDataClient):
@@ -33,7 +33,7 @@ class FridgeDataReceiver(InstrumentDataClient):
             return
         self.add_get_command(None, 'setpoint', 'T', -1, 'Gets the fields setpoint value.')
         self.add_get_command(None, 'field', 'T', -1, 'Gets the current field value.')
-        self.add_get_command(None, 'mode', '', None, 'Gets the ramping status.')
+        self.add_get_command(None, 'ramping_state', '', None, 'Gets the ramping status.')
         self.add_get_command(None, 'in_persistent_mode', '', None, 'Persistent mode status.')
         self.__is_read_only = is_read_only
         if not is_read_only:
@@ -63,7 +63,7 @@ class FridgeDataSender():
     _P_file_ext_ = "maxigauge*.log"
     _E_file_ext_ = "Status_*.log"
 
-    def __init__(self, folder_path, has_magnet=True, **kwargs):
+    def __init__(self, folder_path, has_magnet=False, **kwargs):
         self._folder_path_ = folder_path
         quantities = {'datetime': self.get_datetime,
                       'temperatures': self.get_temperatures,
@@ -76,9 +76,11 @@ class FridgeDataSender():
             quantities.update({'setpoint': magnet.setpoint.get,
                                'field': magnet.field.get,
                                'ramping_state': magnet.ramping_state,
-                               'in_persistent_mode': magnet.in_persistent_mode,
-                               '_ramp_to': magnet._ramp_to,
-                               '_set_persistent_switch': magnet._set_persistent_switch_non_blocking})
+                               'in_persistent_mode': magnet.in_persistent_mode#,
+                               #'_ramp_to': magnet._ramp_to,
+                               #'_set_persistent_switch': magnet._set_persistent_switch_non_blocking
+                               })
+            print(" Enabled magnet connection...")
         _data_server_ = InstrumentDataServer(quantities, **kwargs)
         _data_server_.run()
 
@@ -171,13 +173,13 @@ class FridgeDataSender():
     def get_datetime(self):
         return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 
 
-class BlueforsApp():
+class FridgeApp():
 
-    _short_options_ = "?hd:u:p:n:"
-    _long_options_ = ['--help', '--dir', '--un', '--pw', '--port']
+    _short_options_ = "?hmd:u:p:n:"
+    _long_options_ = ['--help', '--dir', '--un', '--pw', '--port', '--magnet']
 
     def __init__(self):
         self._has_magnet_ = False
@@ -207,7 +209,8 @@ class BlueforsApp():
         print("    directory : {0}".format(self._directory_))
         print("    portnumber : {0}".format(self._port_))
         print("    username : {0}".format(self._username_))
-        print("    password : {0}\n".format(self._password_))
+        print("    password : {0}".format(self._password_))
+        print("    has_magnet : {0}\n".format(self._has_magnet_))
 
     def set_password(self, password: str):
         self._password_ = password
@@ -222,7 +225,6 @@ class BlueforsApp():
             self.print_usage(2)
 
     def set_directory(self, directory: str):
-        print(directory)
         self._directory_ = directory
 
     def check_directory(self):
@@ -236,11 +238,10 @@ class BlueforsApp():
         if len(argv) < 2:
             self.print_usage(1)
         try:
-            options, _ = getopt.getopt(argv[1:], BlueforsApp._short_options_,
-                                       BlueforsApp._long_options_)
+            options, _ = getopt.getopt(argv[1:], FridgeApp._short_options_,
+                                       FridgeApp._long_options_)
         except getopt.GetoptError:
             self.print_usage(-1)
-        print(options)
         for option, argument in options:
             if option in ('-?', '-h', '--help'):
                 self.print_usage()
@@ -257,16 +258,17 @@ class BlueforsApp():
         self.print_settings()
         self.check_directory()
         FridgeDataSender(self._directory_, port=self._port_,
-                         user=self._username_, password=self._password_)
+                         has_magnet=self._has_magnet_, user=self._username_,
+                         password=self._password_)
 
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 # Sample for local testing
 
 # Python console 1: server
 """
 from qtt.instrument_drivers.FrideMonitor import FridgeApp
 argv = ['', '-d', '<fridge_data_dir>', '-n', '10501']
-BlueforsApp().main(argv)
+FridgeApp().main(argv)
 """
 
 # Python console 2: client
@@ -277,4 +279,27 @@ print(client.datetime())
 client.close()
 """
 
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+
+def fridge_monitor_main():
+    argv = ['', '-d', 'C:\\Users\\LocalAdmin\\Desktop\\XLD\\XLDlog', '-n', '8001', '-m']
+    FridgeApp().main(argv)
+
+"""
+from qtt.instrument_drivers.FridgeMonitor import fridge_monitor_main
+fridge_monitor_main()
+"""
+
+def fridge_client():
+    return FridgeDataReceiver(name='fridge', port=8001, has_magnet=True)
+
+
+"""
+from qtt.instrument_drivers.FridgeMonitor import fridge_client
+client = fridge_client()
+print(client.datetime())
+client.close()
+"""
+
+
