@@ -5,6 +5,7 @@ import getopt
 import logging
 
 from datetime import datetime
+from qcodes.instrument_drivers.american_magnetics.AMI430_IP import AMI430
 from qtt.instrument_drivers.DistributedInstrument import InstrumentDataClient
 from qtt.instrument_drivers.DistributedInstrument import InstrumentDataServer
 
@@ -13,11 +14,11 @@ from qtt.instrument_drivers.DistributedInstrument import InstrumentDataServer
 
 class FridgeDataReceiver(InstrumentDataClient):
     '''
-    Receives temperature and pressure data from the Bluefors fridge with
+    Receives temperature, pressure and optionally magnet data from the fridge with
     server connection.
     '''
 
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, is_read_only=True, has_magnet=True, **kwargs):
         super().__init__(name, **kwargs)
         self.add_get_command(None, 'temperatures', 'K', -1, 'The CH temperature values')
         self.add_get_command(None, 'pressures', 'bar', -1, 'The maxigauge pressures values')
@@ -28,6 +29,26 @@ class FridgeDataReceiver(InstrumentDataClient):
                              'The compressor input water temperature', {'item': 'cpatempwi'})
         self.add_get_command('cpawarn', 'status', 'arb.', None,
                              'The compressor status', {'item': 'cpawarn'})
+        if not has_magnet:
+            return
+        self.add_get_command(None, 'setpoint', 'T', -1, 'Gets the fields setpoint value.')
+        self.add_get_command(None, 'field', 'T', -1, 'Gets the current field value.')
+        self.add_get_command(None, 'mode', '', None, 'Gets the ramping status.')
+        self.add_get_command(None, 'in_persistent_mode', '', None, 'Persistent mode status.')
+        self.__is_read_only = is_read_only
+        if not is_read_only:
+            self.add_set_command(None, '_ramp_to', 'T', -1, 'Sets the field setpoint.')
+            self.add_set_command(None, '_set_persistent_switch', '', None, 'Sets the persistant mode.')
+
+    def set_field(self, value: float):
+        if self.__is_read_only:
+            raise IOError("The magnet receiver is set to read only!")
+        self._ramp_to({'value': value})
+
+    def set_persistent_mode(self, value: bool):
+        if self.__is_read_only:
+            raise IOError("The magnet receiver is set to read only!")
+        self._set_field({'on': value})
 
 # -----------------------------------------------------------------------------
 
@@ -42,12 +63,22 @@ class FridgeDataSender():
     _P_file_ext_ = "maxigauge*.log"
     _E_file_ext_ = "Status_*.log"
 
-    def __init__(self, folder_path, **kwargs):
+    def __init__(self, folder_path, has_magnet=True, **kwargs):
         self._folder_path_ = folder_path
         quantities = {'datetime': self.get_datetime,
                       'temperatures': self.get_temperatures,
                       'pressures': self.get_pressures,
-                      'status': self.get_status}
+                      'status': self.get_status}   
+        if has_magnet:
+            magnet = AMI430(name='magnet', address='192.168.0.11', write_confirmation=False,
+                            port=7180, coil_constant=0.422, current_rating=0.237,
+                            current_ramp_limit=0.02, server_name=None)
+            quantities.update({'setpoint': magnet.setpoint.get,
+                               'field': magnet.field.get,
+                               'ramping_state': magnet.ramping_state,
+                               'in_persistent_mode': magnet.in_persistent_mode,
+                               '_ramp_to': magnet._ramp_to,
+                               '_set_persistent_switch': magnet._set_persistent_switch_non_blocking})
         _data_server_ = InstrumentDataServer(quantities, **kwargs)
         _data_server_.run()
 
@@ -149,6 +180,7 @@ class BlueforsApp():
     _long_options_ = ['--help', '--dir', '--un', '--pw', '--port']
 
     def __init__(self):
+        self._has_magnet_ = False
         self._directory_ = ''
         self._username_ = None
         self._password_ = None
@@ -166,6 +198,7 @@ class BlueforsApp():
         print('    [-n, --port]       sets the proxy port number\n')
         print('    [-u, --user]       sets the server username')
         print('    [-p, --pw]         sets the server password')
+        print('    [-m, --magnet]     add the magnet functionality')
         sys.exit(status)
 
     def print_settings(self):
@@ -203,9 +236,8 @@ class BlueforsApp():
         if len(argv) < 2:
             self.print_usage(1)
         try:
-            options, _ = getopt.getopt(argv[1:],
-                                               BlueforsApp._short_options_,
-                                               BlueforsApp._long_options_)
+            options, _ = getopt.getopt(argv[1:], BlueforsApp._short_options_,
+                                       BlueforsApp._long_options_)
         except getopt.GetoptError:
             self.print_usage(-1)
         print(options)
@@ -220,30 +252,26 @@ class BlueforsApp():
                 self.set_directory(argument)
             elif option in ("-n", "--port"):
                 self.set_portnumber(argument)
+            elif option in ('-m', "--magnet"):
+                self._has_magnet_ = True
         self.print_settings()
         self.check_directory()
         FridgeDataSender(self._directory_, port=self._port_,
                          user=self._username_, password=self._password_)
 
 # -----------------------------------------------------------------------------
-# Main block for creating py-installer
-
-if __name__ == '__main__':
-    BlueforsApp().main(sys.argv)
-
-# -----------------------------------------------------------------------------
 # Sample for local testing
 
 # Python console 1: server
 """
-from qtt.instrument_drivers.BlueforsMonitor import BlueforsApp
+from qtt.instrument_drivers.FrideMonitor import FridgeApp
 argv = ['', '-d', '<fridge_data_dir>', '-n', '10501']
 BlueforsApp().main(argv)
 """
 
 # Python console 2: client
 """
-from qtt.instrument_drivers.BlueforsMonitor import FridgeDataReceiver
+from qtt.instrument_drivers.FridgeMonitor import FridgeDataReceiver
 client = FridgeDataReceiver(name='dummy_fridge', port=10501)
 print(client.datetime())
 client.close()

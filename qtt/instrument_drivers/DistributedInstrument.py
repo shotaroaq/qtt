@@ -47,7 +47,7 @@ class InstrumentDataClient(Instrument):
     def add_set_command(self, quantity, set_cmd_name, unit, default_value, doc_string):
         """Adds a instument function to the dataclient."""
         if not quantity:
-            quantity = get_cmd_name
+            quantity = set_cmd_name
         command = partial(self.__proxy_wrapper, set_cmd_name, default_value)
         self.add_parameter(quantity, unit=unit, set_cmd=command, docstring=doc_string)
 
