@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import time
 import getopt
 import logging
 
@@ -39,16 +40,40 @@ class FridgeDataReceiver(InstrumentDataClient):
         if not is_read_only:
             self.add_set_command(None, '_ramp_to', 'T', -1, 'Sets the field setpoint.')
             self.add_set_command(None, '_set_persistent_switch', '', None, 'Sets the persistant mode.')
+            self.add_set_command(None, 'pause', '', None, 'Pause the ramping.')
 
     def set_field(self, value: float):
         if self.__is_read_only:
             raise IOError("The magnet receiver is set to read only!")
         self._ramp_to({'value': value})
+        time.sleep(0.5)
+        # Wait until no longer ramping
+        while self.ramping_state() == 'ramping':
+            time.sleep(0.3)
+        time.sleep(2.0)
+        state = self.ramping_state()
+        # If we are now holding, it was succesful
+        if state == 'holding':
+            self.pause({})
+        else:
+            msg = ': _set_field({}) failed with state: {}'
+            logging.error(__name__ + msg.format(value, state))
 
-    def set_persistent_mode(self, value: bool):
+    def set_persistent_switch(self, on: bool):
         if self.__is_read_only:
             raise IOError("The magnet receiver is set to read only!")
-        self._set_field({'on': value})
+        if on:
+            self._set_field({'on': 1})
+            time.sleep(0.5)
+            # Wait until heating is finished
+            while self.ramping_state() == 'heating switch':
+                time.sleep(0.3)
+        else:
+            self._set_field({'on': 0})
+            time.sleep(0.5)
+            # Wait until cooling is finished
+            while self.ramping_state() == 'cooling switch':
+                time.sleep(0.3)
 
 # -----------------------------------------------------------------------------
 
@@ -76,9 +101,9 @@ class FridgeDataSender():
             quantities.update({'setpoint': magnet.setpoint.get,
                                'field': magnet.field.get,
                                'ramping_state': magnet.ramping_state,
-                               'in_persistent_mode': magnet.in_persistent_mode#,
-                               #'_ramp_to': magnet._ramp_to,
-                               #'_set_persistent_switch': magnet._set_persistent_switch_non_blocking
+                               'in_persistent_mode': magnet.in_persistent_mode,
+                               '_ramp_to': magnet._ramp_to,
+                               '_set_persistent_switch': magnet._set_persistent_switch_non_blocking
                                })
             print(" Enabled magnet connection...")
         _data_server_ = InstrumentDataServer(quantities, **kwargs)
