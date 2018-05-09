@@ -755,9 +755,11 @@ class virtual_awg(Instrument):
 
         # tektronics 5014 has precision of 1mV
         self.ch_amp = round(amplitude, 3)
+        self.hardware.channel_amplitudes(self.ch_amp)
         for awg in self._awgs:
             for i in range(1, 5):
                 awg.set('ch%s_amp' % i, self.ch_amp)
+
                 
     def check_amplitude(self, gate, mvrange):
         """ Calculates the lowest allowable AWG peak-to-peak amplitude based on the

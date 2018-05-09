@@ -126,6 +126,7 @@ class VirtualAwg(InstrumentBase):
         self.awgs = self.__set_hardware(instruments)
         self.parameters = parameters
         self.__check_parameters()
+        self._meta_attrs = ['name']
 #        self.__preset_awgs()
 
     def __set_hardware(self, instruments):
@@ -244,25 +245,6 @@ class VirtualAwg(InstrumentBase):
 
     def reorder_sequence(self, names, repetitions, gotos):
         pass
-
-    def mv_to_awg(self, waveform_in_mv, gate=None):
-        """ Converts amplitudes of waveform from DAC mV to [-1,1] range to upload to AWG 
-        
-        Arguments:
-            waveform_in_mv (array): points of the waveform with amplitudes in mV
-            gate (str): gate name that matches one of the awg_to_%s ratios, if None, 1 is used
-            
-        Returns:
-            waveform (array): converted waveform scaled to [-1,1] range
-        """
-        ch_amps = self.awgs[0].get_amplitude(1)
-        if gate is None:
-            awg_to_gate = 1
-        else:
-            awg_to_gate = getattr(self.parameters,'awg_to_%s' % gate)
-        if max(abs(waveform_in_mv * awg_to_gate())) > ch_amps:
-            raise(Exception('Waveform range is greater than channel amplitudes'))
-        return waveform_in_mv * awg_to_gate() / ch_amps
 
     def sweep_init(self, gates, waveforms, do_upload=True, period=None, delete=None, samp_freq=None):
         """ Sends the waveform(s) to gate(s) and markers(s).
@@ -542,6 +524,21 @@ class TektronixVirtualAwg(VirtualAwgBase):
         if any(abs(item) > amplitude for item in waveform):
             logging.error('Waveform contains invalid values! Will set items to zero.')
         return [(lambda value: 0 if value > amplitude else value/amplitude)(value) for value in waveform]
+
+    def mv_to_awg(self, waveform_in_mv, awg_to_gate=1):
+        """ Converts amplitudes of waveform from DAC mV to [-1,1] range to upload to AWG 
+        
+        Arguments:
+            waveform_in_mv (array): points of the waveform with amplitudes in mV
+            awg_to_gate (float): awg.hardware.awg_to_%s ratios
+            
+        Returns:
+            waveform (array): converted waveform scaled to [-1,1] range
+        """
+        ch_amps = self.get_amplitude(1)
+        if max(abs(waveform_in_mv * 2 / awg_to_gate)) > ch_amps:
+            raise(Exception('Waveform range is greater than channel amplitudes'))
+        return waveform_in_mv * 2 / awg_to_gate / ch_amps
 
 # -----------------------------------------------------------------------------------------------
 
