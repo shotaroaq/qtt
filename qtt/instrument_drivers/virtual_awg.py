@@ -41,7 +41,7 @@ class virtual_awg(Instrument):
         self.hardware = hardware
         self.verbose = verbose
         self.delay_FPGA = 2.0e-6  # should depend on filterboxes
-        self.corr = .02e-6 # specific for FPGA
+        self.corr = .0 # legacy code, specific for FPGA board not used any more
         self.maxdatapts = 16e6  # This used to be set to the fpga maximum, but that maximum should not be handled here
 
         self.awg_seq = None
@@ -249,7 +249,7 @@ class virtual_awg(Instrument):
         for nr in awgnrs:
             self._awgs[nr].run()
 
-    def make_sawtooth(self, sweeprange, period, width=.95, repetitionnr=1):
+    def make_sawtooth(self, sweeprange, period, width=.95, repetitionnr=1, start_zero=False):
         '''Make a sawtooth with a decline width determined by width. Not yet scaled with
         awg_to_plunger value.
 
@@ -266,6 +266,9 @@ class virtual_awg(Instrument):
         wave_raw = (v_wave / 2) * scipy.signal.sawtooth(2 * np.pi * tt / period, width=width)
 #        idx_zero = np.argmin(np.abs(wave_raw))
 #        wave_raw = np.roll(wave_raw, wave_raw.size-idx_zero)
+        if start_zero:
+            o=int((wave_raw.size)*(1-width)/2)
+            wave_raw = np.roll(wave_raw, o)
 
         return wave_raw
     
@@ -318,6 +321,7 @@ class virtual_awg(Instrument):
         if filtercutoff is not None:
             b,a = scipy.signal.butter(1,0.5*filtercutoff/self.AWG_clock, btype='low', analog=False, output='ba')
             wave_raw = scipy.signal.filtfilt(b,a,wave_raw)
+        wave_raw = np.tile(wave_raw, reps)
             
         return wave_raw
 
@@ -349,8 +353,9 @@ class virtual_awg(Instrument):
         self.check_frequency_waveform(period, width)
         self.check_amplitude(gate, sweeprange)
 
+        start_zero=True
         waveform = dict()
-        wave_raw = self.make_sawtooth(sweeprange, period, width)
+        wave_raw = self.make_sawtooth(sweeprange, period, width, start_zero=start_zero)
         awg_to_plunger = self.hardware.parameters['awg_to_%s' % gate].get()
         wave = wave_raw / awg_to_plunger
         waveform[gate] = dict()
@@ -362,6 +367,7 @@ class virtual_awg(Instrument):
         sweep_info = self.sweep_init(waveform, period, delete)
         self.sweep_run(sweep_info)
         waveform['width'] = width
+        waveform['start_zero']=start_zero
         waveform['sweeprange'] = sweeprange
         waveform['samplerate'] = 1 / self.AWG_clock
         waveform['period'] = period
@@ -527,6 +533,8 @@ class virtual_awg(Instrument):
 #        if resolution[0] * resolution[1] > self.maxdatapts:
 #            raise Exception('resolution is set higher than FPGA memory allows')
 
+        if self.corr != 0:
+            raise Exception('please do not use the .corr setting any more')
         error_corr = resolution[0] * self.corr
         period_horz = resolution[0] / samp_freq + error_corr
         period_vert = resolution[1] * period_horz
@@ -674,7 +682,7 @@ class virtual_awg(Instrument):
         data_processed = chunks_ch1[:int(width_vert * len(chunks_ch1))]
 
         if diff_dir is not None:
-            data_processed = qtt.diffImageSmooth(data_processed, dy=diff_dir, sigma=1)
+            data_processed = qtt.tools.diffImageSmooth(data_processed, dy=diff_dir, sigma=1)
 
         return data_processed
 
@@ -849,7 +857,7 @@ def sweep_2D_process(data, waveform, diff_dir=None):
     data_processed = chunks_ch1[:int(width_vert * len(chunks_ch1))]
 
     if diff_dir is not None:
-        data_processed = qtt.diffImageSmooth(data_processed, dy=diff_dir, sigma=1)
+        data_processed = qtt.tools.diffImageSmooth(data_processed, dy=diff_dir, sigma=1)
 
     return data_processed
 

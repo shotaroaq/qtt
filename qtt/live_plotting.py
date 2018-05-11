@@ -472,17 +472,22 @@ class livePlot:
                     sweepvalues = np.linspace(
                         paramval - self.sweepranges / 2, self.sweepranges / 2 + paramval, len(data))
                     self.plot.setData(sweepvalues, self.data_avg)
+                    self._sweepvalues=[sweepvalues]
                     self.crosshair(show=None, pos=[paramval, 0])
             elif self.data.ndim == 2:
                 self.plot.setImage(self.data_avg.T)
                 if None not in (self.sweepInstrument,
                                 self.sweepparams, self.sweepranges):
-                    if type(self.sweepparams) is dict:
+                    if isinstance(self.sweepparams, dict):
                         value_x = 0
                         value_y = 0
                     else:
-                        value_x = self.sweepInstrument.get(self.sweepparams[0])
-                        value_y = self.sweepInstrument.get(self.sweepparams[1])
+                        if isinstance(self.sweepparams[0], dict):
+                            value_x = 0
+                            value_y = 0
+                        else:
+                            value_x = self.sweepInstrument.get(self.sweepparams[0])
+                            value_y = self.sweepInstrument.get(self.sweepparams[1])
                     self.horz_low = value_x - self.sweepranges[0] / 2
                     self.horz_range = self.sweepranges[0]
                     self.vert_low = value_y - self.sweepranges[1] / 2
@@ -491,6 +496,7 @@ class livePlot:
                         self.horz_low, self.vert_low, self.horz_range, self.vert_range)
                     self.plot.setRect(self.rect)
                     self.crosshair(show=None, pos=[value_x, value_y])
+                    self._sweepvalues=[np.linspace(self.horz_low, self.horz_low+self.horz_range, self.data.shape[1]), np.linspace(self.vert_low, self.vert_low+self.vert_range, self.data.shape[0])]
             else:
                 raise Exception('ndim %d not supported' % self.data.ndim)
 
