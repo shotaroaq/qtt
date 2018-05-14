@@ -118,7 +118,7 @@ class VideoMode:
 
     def __init__(self, station, sweepparams, sweepranges, minstrument, nplots=None, Naverage=10,
                  resolution=[90, 90], sample_rate='default', diff_dir=None, verbose=1,
-                 dorun=True, show_controls=True, add_ppt=True, crosshair=False, averaging=True):
+                 dorun=True, show_controls=True, add_ppt=True, crosshair=False, averaging=True, delete=True, load=True):
         self.station = station
         self.verbose = verbose
         self.sweepparams = sweepparams
@@ -229,7 +229,7 @@ class VideoMode:
 
         self.enable_averaging_slot(averaging=averaging)
         if dorun:
-            self.run()
+            self.run(delete=delete, load=load)
 
     def enable_averaging_slot(self, averaging=None, *args, **kwargs):
         """ Update the averaging mode of the widget """
@@ -357,7 +357,7 @@ class VideoMode:
         else:
             return -1
 
-    def run(self, startreadout=True):
+    def run(self, startreadout=True, delete=True, load=True):
         """ Programs the AWG, starts the read-out and the plotting. """
 
         if self.verbose:
@@ -383,7 +383,7 @@ class VideoMode:
             # 2D scan
             if isinstance(self.sweepparams, list):
                 waveform, _ = awg.sweep_2D(self.sampling_frequency.get(
-                ), self.sweepparams, self.sweepranges, self.resolution)
+                ), self.sweepparams, self.sweepranges, self.resolution, delete=delete, load=load)
             elif isinstance(self.sweepparams, dict):
                 waveform, _ = awg.sweep_2D_virt(self.sampling_frequency.get(), self.sweepparams[
                                                              'gates_horz'], self.sweepparams['gates_vert'], self.sweepranges, self.resolution)

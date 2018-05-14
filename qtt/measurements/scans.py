@@ -433,7 +433,7 @@ def scan1D(station, scanjob, location=None, liveplotwindow=None, plotparam='meas
 
 
 #%%
-def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True, verbose=1):
+def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True, load=True, verbose=1):
     """Fast 1D scan. 
 
     Args:
@@ -495,9 +495,9 @@ def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True
             waveform, sweep_info = station.awg.sweepandpulse_gate(
                 {'gate': sweepdata['param'].name,
                     'sweeprange': sweeprange, 'period': period},
-                scanjob['pulsedata'])
+                scanjob['pulsedata'], delete=delete, load=load)
         else:
-            waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period, delete=delete)
+            waveform, sweep_info = station.awg.sweep_gate(sweepdata['param'], sweeprange, period, delete=delete, load=load)
     else:
         sweeprange = sweepdata['range']
         if 'pulsedata' in scanjob:
@@ -509,10 +509,10 @@ def scan1Dfast(station, scanjob, location=None, liveplotwindow=None, delete=True
                 raise(Exception('AWG pulses does not yet support virtual gates'))
             waveform, sweep_info = station.awg.sweepandpulse_gate(
                 {'gate':sg[0], 'sweeprange':sweeprange, 'period':period},
-                scanjob['pulsedata'])
+                scanjob['pulsedata'], delete=delete, load=load)
         else:
             waveform, sweep_info = station.awg.sweep_gate_virt(
-                    fast_sweep_gates, sweeprange, period, delete=delete)
+                    fast_sweep_gates, sweeprange, period, delete=delete, load=load)
 
     qtt.time.sleep(wait_time_startscan)
 
@@ -1579,7 +1579,7 @@ def single_shot_readout(minstparams, length, shots, threshold=None):
 
 #%%
       
-def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', diff_dir=None, verbose=1):
+def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', diff_dir=None, delete=True, load=True, verbose=1):
     """Make a 2D scan and create qcodes dataset to store on disk.
 
     Args:
@@ -1640,10 +1640,10 @@ def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='
                 raise(Exception('AWG pulses does not yet support virtual gates'))
             waveform, sweep_info = station.awg.sweepandpulse_gate(
                 {'gate':sg[0], 'sweeprange':sweepdata['range'], 'period':period},
-                scanjob['pulsedata'])
+                scanjob['pulsedata'], delete=delete, load=load)
         else:
             waveform, sweep_info = station.awg.sweep_gate_virt(
-                fast_sweep_gates, sweepdata['range'], period)
+                fast_sweep_gates, sweepdata['range'], period, delete=delete, load=load)
     else:
         if 'range' in sweepdata:
             sweeprange = sweepdata['range']
@@ -1655,10 +1655,10 @@ def scan2Dfast(station, scanjob, location=None, liveplotwindow=None, plotparam='
             waveform, sweep_info = station.awg.sweepandpulse_gate(
                 {'gate': sweepdata['param'].name,
                     'sweeprange': sweeprange, 'period': period},
-                scanjob['pulsedata'])
+                scanjob['pulsedata'], delete=delete, load=load)
         else:
             waveform, sweep_info = station.awg.sweep_gate(
-                sweepdata['param'].name, sweeprange, period)
+                sweepdata['param'].name, sweeprange, period, delete=delete, load=load)
 
     data = measuresegment(waveform, Naverage, minstrhandle, read_ch)
     if len(read_ch) == 1:
@@ -1828,7 +1828,7 @@ def plotData(alldata, diff_dir=None, fig=1):
 #%%
 
 
-def scan2Dturbo(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', delete=True, verbose=1):
+def scan2Dturbo(station, scanjob, location=None, liveplotwindow=None, plotparam='measured', delete=True, load=True, verbose=1):
     """Perform a very fast 2d scan by varying two physical gates with the AWG.
 
     The function assumes the station contains an FPGA with readFPGA function. 
@@ -1911,13 +1911,13 @@ def scan2Dturbo(station, scanjob, location=None, liveplotwindow=None, plotparam=
     if scanjob['scantype'] == 'scan2Dturbo':
         sweepgates = [sweepdata['param'].name, stepdata['param'].name]
         waveform, sweep_info = station.awg.sweep_2D(
-            samp_freq, sweepgates, sweepranges, resolution, delete=delete)
+            samp_freq, sweepgates, sweepranges, resolution, delete=delete, load=load)
         if verbose:
             print('scan2Dturbo: sweepgates %s' % (str(sweepgates),))
     else:
         scanjob._parse_2Dvec()
         waveform, sweep_info = station.awg.sweep_2D_virt(
-            samp_freq, fast_sweep_gates, fast_step_gates, sweepranges, resolution, delete=delete)
+            samp_freq, fast_sweep_gates, fast_step_gates, sweepranges, resolution, delete=delete, load=load)
 
     qtt.time.sleep(wait_time_startscan)
 
