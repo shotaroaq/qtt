@@ -686,16 +686,17 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def pulse_gates(self, gate_voltages, waittimes, reps=1, marker_voltages=None, marker_waittimes=None, filtercutoff=None, rampparams=None, delete=True): #Marc's Code
+    def pulse_gates(self, gate_voltages, waittimes, reps=1, filtercutoff=None, reset_to_zero=False, delete=True):
         ''' Send a pulse sequence with the AWG that can span over any gate space.
         Sends a marker to measurement instrument at the start of the sequence.
         Only works with physical gates.
-        IMPORTANT: The function offsets the voltages values so that the last point is 0 V on all gates (i.e. it centers the pulse sequence on the last point)
 
         Arguments:
             gate_voltages (dict): keys are gates to apply the sequence to, and values
             are arrays with the voltage levels to be applied in the sequence
             waittimes (list of floats): duration of each pulse in the sequence
+            reset_to_zero (bool): if True, the function offsets the voltages values so that the last point is 0V
+                                  on all gates (i.e. it centers the pulse sequence on the last point).
 
         Returns:
             waveform (dict): The waveform being send with the AWG.
@@ -703,8 +704,9 @@ class virtual_awg(Instrument):
         '''
 
         period = sum(waittimes)
-#        for g in gate_voltages:
-#            gate_voltages[g] = [x - gate_voltages[g][-1] for x in gate_voltages[g]] #This line takes the pulse to 0 in the last part!
+        if reset_to_zero:
+            for g in gate_voltages:
+                gate_voltages[g] = [x-gate_voltages[g][-1] for x in gate_voltages[g]]
         allvoltages = np.concatenate([v for v in gate_voltages.values()])
         
         mvrange = [max(allvoltages), min(allvoltages)]
