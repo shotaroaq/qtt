@@ -110,7 +110,7 @@ class virtual_awg(Instrument):
         if verbose:
             print('Stopped AWGs')
 
-    def sweep_init(self, waveforms, period=1e-3, delete=True, load=True, samp_freq=None):
+    def sweep_init(self, waveforms, period=1e-3, delete=True, samp_freq=None):
         ''' Send waveform(s) to gate(s)
 
         Arguments:
@@ -212,7 +212,7 @@ class virtual_awg(Instrument):
                 'ch%i_m%i_high' % (awg_info[1], awg_info[2]), 2.6)
 
         # send waveforms
-        if load:
+        if delete:
             for sweep in sweep_info:
                 try:
                     self._awgs[sweep[0]].send_waveform_to_list(sweep_info[sweep]['waveform'], sweep_info[
@@ -333,7 +333,7 @@ class virtual_awg(Instrument):
             warnings.warn('awg sampling frequency %.1f MHz is too low for signal requested (sr %.1f [MHz], period %.1f [ms])' % (old_sr / 1e6, new_sr / 1e6, 1e3 * period), UserWarning)
         return new_sr
 
-    def sweep_gate(self, gate, sweeprange, period, width=.95, wave_name=None, delete=True, load=True):
+    def sweep_gate(self, gate, sweeprange, period, width=.95, wave_name=None, delete=True, run=True):
         ''' Send a sawtooth signal with the AWG to a gate to sweep. Also
         send a marker to the measurement instrument.
 
@@ -364,8 +364,8 @@ class virtual_awg(Instrument):
             waveform[gate]['name'] = 'sweep_%s' % gate
         else:
             waveform[gate]['name'] = wave_name
-        sweep_info = self.sweep_init(waveform, period, delete=delete, load=load)
-        self.sweep_run(sweep_info)
+        sweep_info = self.sweep_init(waveform, period, delete=delete)
+        if run: self.sweep_run(sweep_info)
         waveform['width'] = width
         waveform['start_zero']=start_zero
         waveform['sweeprange'] = sweeprange
@@ -377,7 +377,7 @@ class virtual_awg(Instrument):
 
         return waveform, sweep_info
 
-    def sweep_gate_virt(self, gate_comb, sweeprange, period, width=.95, delete=True, load=True):
+    def sweep_gate_virt(self, gate_comb, sweeprange, period, width=.95, delete=True, run=True):
         ''' Send a sawtooth signal with the AWG to a linear combination of 
         gates to sweep. Also send a marker to the measurement instrument.
 
@@ -404,8 +404,8 @@ class virtual_awg(Instrument):
             waveform[g]['wave'] = wave
             waveform[g]['name'] = 'sweep_%s' % g
 
-        sweep_info = self.sweep_init(waveform, period, delete=delete, load=load)
-        self.sweep_run(sweep_info)
+        sweep_info = self.sweep_init(waveform, period, delete=delete)
+        if run: self.sweep_run(sweep_info)
         waveform['width'] = width
         waveform['sweeprange'] = sweeprange
         waveform['samplerate'] = 1 / self.AWG_clock
@@ -416,7 +416,7 @@ class virtual_awg(Instrument):
 
         return waveform, sweep_info
 
-    def sweepandpulse_gate(self, sweepdata, pulsedata, wave_name=None, delete=True, load=True):
+    def sweepandpulse_gate(self, sweepdata, pulsedata, wave_name=None, delete=True, run=True):
         ''' Makes and outputs a waveform which overlays a sawtooth signal to sweep 
         a gate, with a pulse sequence. A marker is sent to the measurement instrument 
         at the start of the waveform.
@@ -469,8 +469,8 @@ class virtual_awg(Instrument):
                 waveform[g]['name'] = 'sweepandpulse_%s' % g
             else:
                 waveform[g]['name'] = wave_name
-        sweep_info = self.sweep_init(waveform, period, delete=delete, load=load)
-        self.sweep_run(sweep_info)
+        sweep_info = self.sweep_init(waveform, period, delete=delete)
+        if run: self.sweep_run(sweep_info)
         waveform['width'] = width
         waveform['sweeprange'] = sweeprange
         waveform['samplerate'] = 1 / self.AWG_clock
@@ -516,7 +516,7 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def sweep_2D(self, samp_freq, sweepgates, sweepranges, resolution, width=.95, comp=None, delete=True, load=True):
+    def sweep_2D(self, samp_freq, sweepgates, sweepranges, resolution, width=.95, comp=None, delete=True, run=True):
         ''' Send sawtooth signals to the sweepgates which effectively do a 2D
         scan.
 
@@ -573,8 +573,8 @@ class virtual_awg(Instrument):
                 else:
                     raise Exception('Can not compensate a sweepgate')
 
-        sweep_info = self.sweep_init(waveform, period=period_vert, delete=delete, load=load, samp_freq = samp_freq)
-        self.sweep_run(sweep_info)
+        sweep_info = self.sweep_init(waveform, period=period_vert, delete=delete, samp_freq = samp_freq)
+        if run: self.sweep_run(sweep_info)
 
         waveform['width_horz'] = width
         waveform['sweeprange_horz'] = sweepranges[0]
@@ -590,7 +590,7 @@ class virtual_awg(Instrument):
 
         return waveform, sweep_info
 
-    def sweep_2D_virt(self, samp_freq, gates_horz, gates_vert, sweepranges, resolution, width=.95, delete=True, load=True):
+    def sweep_2D_virt(self, samp_freq, gates_horz, gates_vert, sweepranges, resolution, width=.95, delete=True, run=True):
         ''' Send sawtooth signals to the linear combinations of gates set by
         gates_horz and gates_vert which effectively do a 2D scan of two virtual
         gates.
@@ -645,8 +645,8 @@ class virtual_awg(Instrument):
 
         # TODO: Implement compensation of sensing dot plunger
 
-        sweep_info = self.sweep_init(waveform, period=period_vert, delete=delete, load=load, samp_freq=samp_freq)
-        self.sweep_run(sweep_info)
+        sweep_info = self.sweep_init(waveform, period=period_vert, delete=delete, samp_freq=samp_freq)
+        if run: self.sweep_run(sweep_info)
 
         waveform['width_horz'] = width
         waveform['sweeprange_horz'] = sweepranges[0]
@@ -686,7 +686,7 @@ class virtual_awg(Instrument):
 
         return data_processed
 
-    def pulse_gates(self, gate_voltages, waittimes, reps=1, filtercutoff=None, reset_to_zero=False, delete=True, load=True):
+    def pulse_gates(self, gate_voltages, waittimes, reps=1, filtercutoff=None, reset_to_zero=False, delete=True):
         ''' Send a pulse sequence with the AWG that can span over any gate space.
         Sends a marker to measurement instrument at the start of the sequence.
         Only works with physical gates.
@@ -722,7 +722,7 @@ class virtual_awg(Instrument):
             waveform[g]['wave'] = wave
             waveform[g]['name'] = 'pulses_%s' % g
 
-        sweep_info = self.sweep_init(waveform, period, delete=delete, load=load)
+        sweep_info = self.sweep_init(waveform, period, delete=delete)
         self.sweep_run(sweep_info)
         waveform['voltages'] = gate_voltages
         waveform['samplerate'] = 1 / self.AWG_clock
