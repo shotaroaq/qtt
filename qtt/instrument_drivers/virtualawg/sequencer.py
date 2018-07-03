@@ -5,8 +5,8 @@ from qctoolkit.pulses import SequencePT, TablePT
 from qctoolkit.pulses.plotting import (PlottingNotPossibleException, plot, render)
 from qctoolkit.pulses.sequencing import Sequencer as Sequencing
 from qctoolkit.serialization import Serializer, DictBackend
-from qtt.instrument_drivers.virtual_awg.templates import DataTypes, Templates
-from qtt.instrument_drivers.virtual_awg.serializer import StringBackend
+from qtt.instrument_drivers.virtualawg.templates import DataTypes, Templates
+from qtt.instrument_drivers.virtualawg.serializer import StringBackend
 
 
 class Sequencer:
@@ -157,6 +157,22 @@ class Sequencer:
             (dict): A dictionary with name, type and template of the waveform.
         """
         seq_data = (Templates.square(name), {'period': period*1e9, 'amplitude': amplitude})
+        return {'NAME': name, 'WAVE': SequencePT(*(seq_data,)*repetitions), 'TYPE': DataTypes.QC_TOOLKIT}
+
+    @staticmethod
+    def make_sine_wave(amplitude, period, repetitions=1, name='sine'):
+        """Creates a sine waveform of the type QC toolkit template.
+
+        Arguments:
+            amplitude (float): The peak-to-peak voltage of the waveform.
+            period (float): The period of the waveform in seconds.
+            repetitions (int): The number of oscillations in the sequence.
+            name (str): The name of the returned sequence.
+
+        Returns:
+            (dict): A dictionary with name, type and template of the waveform.
+        """
+        seq_data = (Templates.sine(name), {'duration': period, 'amplitude': amplitude, 'omega': 1./period})
         return {'NAME': name, 'WAVE': SequencePT(*(seq_data,)*repetitions), 'TYPE': DataTypes.QC_TOOLKIT}
 
     @staticmethod

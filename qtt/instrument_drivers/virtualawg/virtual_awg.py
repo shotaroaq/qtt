@@ -2,9 +2,9 @@ import logging
 import numpy as np
 
 from qcodes import Instrument
-from qtt.instrument_drivers.virtual_awg.sequencer import Sequencer
-from qtt.instrument_drivers.virtual_awg.awgs.Tektronix5014C import Tektronix5014C_AWG
-from qtt.instrument_drivers.virtual_awg.awgs.KeysightM3202A import KeysightM3202A_AWG
+from qtt.instrument_drivers.virtualawg.sequencer import Sequencer
+from qtt.instrument_drivers.virtualawg.awgs.Tektronix5014C import Tektronix5014C_AWG
+from qtt.instrument_drivers.virtualawg.awgs.KeysightM3202A import KeysightM3202A_AWG
 
 
 class VirtualAwgError(Exception):

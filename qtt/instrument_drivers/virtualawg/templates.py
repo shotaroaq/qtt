@@ -1,4 +1,5 @@
 from qctoolkit.pulses import TablePT
+from qctoolkit.pulses import FunctionPT
 
 
 class DataTypes:
@@ -57,3 +58,35 @@ class Templates:
             The sequence with the wait pulse.
         """
         return TablePT({name: [(0, 0), ('period*offset', 1), ('period*(offset+uptime)', 0), ('period', 0)]})
+    
+    def sine(name):
+        """ Creates a sine QC toolkit template for sequencing.
+
+        Arguments:
+            name (str): The user defined name of the sequence.
+
+        Returns:
+            The sequence with the sawtooth wave. Parameters are 'duration', 'omega' and 'amplitude'
+        """
+        template = FunctionPT('amplitude*sin(2*pi*omega*t/1e9)', '1e9*duration')    
+        return template
+
+
+def test_sequence_templates(fig=None):
+    import matplotlib.pyplot as plt
+    from qctoolkit.pulses import SequencePT, TablePT
+    sq=Templates.square('square')
+    seq=SequencePT( (sq, {'amplitude': .5, 'period': 1e-3}) )
+
+    from qctoolkit.pulses.plotting import plot
+    
+    # 10 MHz for 1 ms
+    template = FunctionPT('sin(2*pi*omega*t/1e9)', '1e9*duration')    
+    
+    if fig is not None:
+        plt.figure(fig); plt.clf()
+        _ = plot(template, {'omega': 10e6, 'duration': 1e-6}, sample_rate=10, axes=plt.gca())
+
+if __name__=='__main__':
+    test_sequence_templates(fig=10)
+    
