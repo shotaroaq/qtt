@@ -30,7 +30,7 @@ simplejson
 wrapt
 
 # for documentation building
-sphinx>=1.6
+sphinx>=1.7
 sphinx_rtd_theme
 sphinxcontrib.bibtex
 nbsphinx
