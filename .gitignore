@@ -92,3 +92,4 @@ model.png
 test*py
 .pytest_cache
 .vscode
+docs/modules.rst
