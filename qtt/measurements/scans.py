@@ -36,6 +36,7 @@ from qtt.data import uniqueArrayName
 from qtt.utilities.tools import update_dictionary
 from qtt.structures import VectorParameter
 
+import pyspcm
 
 # %%
 
@@ -1651,6 +1652,7 @@ def acquire_segments(station, parameters, average=True, mV_range=2000, save_to_d
             memsize = select_digitizer_memsize(minstrhandle, period, nsegments=nsegments)
             post_trigger = minstrhandle.posttrigger_memory_size()
             minstrhandle.initialize_channels(read_ch, mV_range=mV_range, memsize=memsize)
+            minstrhandle.set_ext0_OR_trigger_settings(pyspcm.SPC_TM_POS, minstrhandle.external_trigger_termination(), minstrhandle.external_trigger_input_coupling(), minstrhandle.external_trigger_level_0())
             dataraw = minstrhandle.multiple_trigger_acquisition(
                 mV_range, memsize, memsize // nsegments, post_trigger)
             if isinstance(dataraw, tuple):
@@ -1702,6 +1704,7 @@ def single_shot_readout(minstparams, length, shots, threshold=None):
     memsize = select_digitizer_memsize(minstrhandle, length, nsegments=shots, verbose=0)
     post_trigger = minstrhandle.posttrigger_memory_size()
     minstrhandle.initialize_channels(read_ch, mV_range=mV_range, memsize=memsize)
+    minstrhandle.set_ext0_OR_trigger_settings(pyspcm.SPC_TM_POS, minstrhandle.external_trigger_termination(), minstrhandle.external_trigger_input_coupling(), minstrhandle.external_trigger_level_0())
     dataraw = minstrhandle.multiple_trigger_acquisition(mV_range, memsize, memsize // shots, post_trigger)
     data = np.reshape(dataraw, (shots, -1))
     allshots = np.mean(data, 1)
