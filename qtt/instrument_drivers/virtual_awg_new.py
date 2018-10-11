@@ -444,12 +444,19 @@ class TektronixVirtualAwg(VirtualAwgBase):
         self.__awg.reset()
 
     def set_sequence(self, channels, sequence, waits=None, repeats=None, gotos=None):
-        if waits or repeats or gotos:
-            raise NotImplementedError("Wait, repeats, gotos currently not implemented!")
+        if waits or gotos:
+            raise NotImplementedError("Wait, gotos currently not implemented!")
         if not sequence or len(sequence) != len(channels):
             raise VirtualAwgError('Invalid sequence and channel count!')
         if not all(len(idx) == len(sequence[0]) for idx in sequence):
             raise VirtualAwgError('Invalid sequence list lengthts!')
+        if repeats is not None:
+            if len(repeats) != len(channels):
+                raise VirtualAwgError('Invalid repeats and channel count!')
+            if len(repeats[0]) != len(sequence[0]):
+                raise VirtualAwgError('Invalid repeats and sequence count!')
+            if not all(len(idx) == len(repeats[0]) for idx in repeats):
+                raise VirtualAwgError('Invalid sequence list lengthts!')
         request_rows = len(sequence[0])
         current_rows = self.__get_sequence_length()
         if request_rows != current_rows:
@@ -462,6 +469,8 @@ class TektronixVirtualAwg(VirtualAwgBase):
                     self.__awg.set_sqel_waveform(wave_name, channel, row_index + 1)
                 else:
                     self.__awg.set_sqel_waveform("", channel, row_index + 1)
+                if repeats is not None:
+                    self.__awg.setset_sqel_loopcnt(repeats[ch_index][row_index], row_index + 1)
         self.__awg.set_sqel_goto_state(request_rows, 1)
 
     def delete_sequence(self):
