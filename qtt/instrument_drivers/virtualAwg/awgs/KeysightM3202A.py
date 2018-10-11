@@ -4,7 +4,7 @@ import sys
 import numpy as np
 
 from qcodes import Parameter
-from qcodes.utils.validators import Numbers
+from qcodes.utils.validators import Numbers, Bool
 from qtt.instrument_drivers.virtualAwg.awgs.common import (AwgCommon,
                                                            AwgCommonError)
 
@@ -38,7 +38,8 @@ class KeysightM3202A_AWG(AwgCommon):
                            Parameter(name='cycles', initial_value=0,
                                      set_cmd=None),
                            Parameter(name='prescaler', initial_value=2,
-                                     set_cmd=None)]
+                                     set_cmd=None),
+                           Parameter(name='hvi_enabled', initial_value=True, set_cmd=None, vals=Bool())]
         self.__awg = awg
 
     @property
