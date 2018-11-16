@@ -198,7 +198,7 @@ class VirtualAwg(Instrument):
             amplitude = rel_amplitude * sweep_range
             sequences[gate_name] = Sequencer.make_square_wave(amplitude, period)
         sweep_data = self.sequence_gates(sequences, do_upload)
-        sweep_data.update({'sweeprange': sweep_range, 'period': period, 'width': 1.0})
+        sweep_data.update({'sweeprange': sweep_range, 'period': period})
         if VirtualAwg.__digitizer_name in self._settings.awg_map:
             sweep_data.update({'markerdelay': self.digitizer_marker_delay()})
         return sweep_data
@@ -334,8 +334,6 @@ class VirtualAwg(Instrument):
         sweep_data.update({'sweeprange_horz': sweep_ranges[0],
                            'sweeprange_vert': sweep_ranges[1],
                            'resolution': resolution,
-                           'width_horz': 1.0,
-                           'width_vert': 1.0,
                            'period': period_x, 'period_vert': period_y,
                            'samplerate': self.awgs[0].retrieve_setting('channel_sampling_rate'),
                            'markerdelay': self.awg_marker_delay()})
